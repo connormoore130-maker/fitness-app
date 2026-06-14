@@ -767,7 +767,7 @@ async function renderNutrition() {
   el.innerHTML = `
     <div class="page-header"><h1>Nutrition</h1></div>
     <div class="tab-bar" style="margin-bottom:20px">
-      <button class="tab-btn ${nutritionTab==='today'?'active':''}" onclick="switchNutritionTab('today')">Today</button>
+      <button class="tab-btn ${nutritionTab==='today'?'active':''}" onclick="switchNutritionTab('today')">Daily Totals</button>
       <button class="tab-btn ${nutritionTab==='plan'?'active':''}" onclick="switchNutritionTab('plan')">Meal Plan</button>
     </div>
     <div id="nutrition-content"></div>
@@ -786,100 +786,102 @@ function switchNutritionTab(tab) {
 async function renderNutritionToday() {
   const content = document.getElementById('nutrition-content');
   const today = todayStr();
-  const entries = await api.get(`/api/nutrition?date=${today}`);
+  const [entries, allEntries] = await Promise.all([
+    api.get(`/api/nutrition?date=${today}`),
+    api.get('/api/nutrition'),
+  ]);
   const s = Settings.get();
   const tot = entries.reduce((a,e)=>({cal:a.cal+(+e.calories||0),p:a.p+(+e.protein||0),c:a.c+(+e.carbs||0),f:a.f+(+e.fat||0)}),{cal:0,p:0,c:0,f:0});
   const mt = tot.p+tot.c+tot.f;
   const pPct=mt>0?(tot.p/mt*100).toFixed(0):0;
   const cPct=mt>0?(tot.c/mt*100).toFixed(0):0;
   const fPct=mt>0?(tot.f/mt*100).toFixed(0):0;
+  const hasEntry = entries.length > 0;
+
+  const byDay = {};
+  allEntries.forEach(e => {
+    if (!byDay[e.date]) byDay[e.date] = {cal:0,p:0,c:0,f:0};
+    byDay[e.date].cal += +e.calories||0;
+    byDay[e.date].p   += +e.protein||0;
+    byDay[e.date].c   += +e.carbs||0;
+    byDay[e.date].f   += +e.fat||0;
+  });
+  const histDays = Object.keys(byDay).sort().reverse().filter(d=>d!==today).slice(0,6);
 
   content.innerHTML = `
     <div class="grid-2" style="margin-bottom:16px">
       <div class="card">
-        <div class="card-title">Today · ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:14px">
-          <div><div style="font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1">${tot.cal}</div><div style="font-size:12px;color:var(--text-2);margin-top:3px">of ${s.calorieGoal} kcal</div></div>
-          <div style="display:grid;gap:5px;align-content:center">
-            <div style="font-size:12.5px"><span style="color:var(--accent-2);font-weight:600">${tot.p.toFixed(0)}g</span> <span style="color:var(--text-3)">protein</span></div>
-            <div style="font-size:12.5px"><span style="color:var(--amber);font-weight:600">${tot.c.toFixed(0)}g</span> <span style="color:var(--text-3)">carbs</span></div>
-            <div style="font-size:12.5px"><span style="color:var(--red);font-weight:600">${tot.f.toFixed(0)}g</span> <span style="color:var(--text-3)">fat</span></div>
+        <div class="card-title">Today · ${new Date().toLocaleDateString('en-GB',{weekday:'long',month:'short',day:'numeric'})}</div>
+        ${hasEntry ? `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:14px">
+            <div><div style="font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1">${tot.cal}</div><div style="font-size:12px;color:var(--text-2);margin-top:3px">of ${s.calorieGoal} kcal</div></div>
+            <div style="display:grid;gap:5px;align-content:center">
+              <div style="font-size:12.5px"><span style="color:var(--accent-2);font-weight:600">${tot.p.toFixed(0)}g</span> <span style="color:var(--text-3)">protein</span></div>
+              <div style="font-size:12.5px"><span style="color:var(--amber);font-weight:600">${tot.c.toFixed(0)}g</span> <span style="color:var(--text-3)">carbs</span></div>
+              <div style="font-size:12.5px"><span style="color:var(--red);font-weight:600">${tot.f.toFixed(0)}g</span> <span style="color:var(--text-3)">fat</span></div>
+            </div>
           </div>
-        </div>
-        <div class="macro-bar">
-          <div class="macro-bar-seg protein" style="width:${pPct}%"></div>
-          <div class="macro-bar-seg carbs" style="width:${cPct}%"></div>
-          <div class="macro-bar-seg fat" style="width:${fPct}%"></div>
-        </div>
-        <div class="macro-legend">
-          <span class="macro-dot protein">P ${pPct}%</span>
-          <span class="macro-dot carbs">C ${cPct}%</span>
-          <span class="macro-dot fat">F ${fPct}%</span>
-        </div>
+          <div class="macro-bar">
+            <div class="macro-bar-seg protein" style="width:${pPct}%"></div>
+            <div class="macro-bar-seg carbs" style="width:${cPct}%"></div>
+            <div class="macro-bar-seg fat" style="width:${fPct}%"></div>
+          </div>
+          <div class="macro-legend">
+            <span class="macro-dot protein">P ${pPct}%</span>
+            <span class="macro-dot carbs">C ${cPct}%</span>
+            <span class="macro-dot fat">F ${fPct}%</span>
+          </div>
+        ` : `<div style="color:var(--text-3);font-size:13px;padding:12px 0">Nothing logged yet today.</div>`}
       </div>
       <div class="card">
-        <div class="card-title">Log Meal</div>
-        <div class="form-group"><label class="form-label">Meal</label><input class="form-input" id="n-name" placeholder="Chicken & rice, Protein shake…" /></div>
+        <div class="card-title">${hasEntry ? 'Update Today' : 'Log Today'}</div>
+        <p style="font-size:12px;color:var(--text-3);margin-bottom:14px">Enter your daily totals from your nutrition app.</p>
         <div class="form-row" style="margin-bottom:12px">
-          <div class="form-group" style="margin-bottom:0"><label class="form-label">kcal</label><input class="form-input" id="n-cal" type="number" placeholder="0" /></div>
-          <div class="form-group" style="margin-bottom:0"><label class="form-label">P (g)</label><input class="form-input" id="n-pro" type="number" placeholder="0" /></div>
-          <div class="form-group" style="margin-bottom:0"><label class="form-label">C (g)</label><input class="form-input" id="n-car" type="number" placeholder="0" /></div>
-          <div class="form-group" style="margin-bottom:0"><label class="form-label">F (g)</label><input class="form-input" id="n-fat" type="number" placeholder="0" /></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">kcal</label><input class="form-input" id="n-cal" type="number" placeholder="0" value="${hasEntry?tot.cal:''}" /></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Protein (g)</label><input class="form-input" id="n-pro" type="number" placeholder="0" value="${hasEntry?tot.p.toFixed(0):''}" /></div>
         </div>
-        <button class="btn btn-primary btn-sm" id="n-save">Add Meal</button>
-        <div class="quick-add-row">
-          <div class="quick-add-label">Quick Add</div>
-          ${[
-            {n:'Whey Shake',cal:165,p:30,c:8,f:3},
-            {n:'2 Eggs',cal:143,p:13,c:1,f:10},
-            {n:'Chicken 150g',cal:248,p:46,c:0,f:5},
-            {n:'Rice 150g',cal:195,p:4,c:43,f:1},
-            {n:'Banana',cal:89,p:1,c:23,f:0},
-            {n:'Greek Yogurt',cal:120,p:10,c:9,f:3},
-            {n:'Oats 80g',cal:303,p:10,c:54,f:6},
-            {n:'Almonds 30g',cal:173,p:6,c:6,f:15},
-          ].map(f=>`<button class="quick-add-btn" onclick="quickAddFood('${f.n}',${f.cal},${f.p},${f.c},${f.f})">${f.n} · ${f.cal} kcal</button>`).join('')}
+        <div class="form-row" style="margin-bottom:14px">
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Carbs (g)</label><input class="form-input" id="n-car" type="number" placeholder="0" value="${hasEntry?tot.c.toFixed(0):''}" /></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Fat (g)</label><input class="form-input" id="n-fat" type="number" placeholder="0" value="${hasEntry?tot.f.toFixed(0):''}" /></div>
         </div>
+        <button class="btn btn-primary btn-sm" id="n-save">${hasEntry ? 'Update' : 'Save'}</button>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title">Today's Meals</div>
-      <div class="meal-list" id="meal-list">
-        ${entries.length?entries.map(e=>`
-          <div class="meal-row" id="mr-${e.id}">
-            <div style="flex:1;min-width:0">
-              <div class="meal-name">${escHtml(e.meal_name)}</div>
-              <div class="meal-macros">${+e.protein||0}g P · ${+e.carbs||0}g C · ${+e.fat||0}g F</div>
-            </div>
-            <div class="meal-cal">${+e.calories||0}<span style="font-size:11px;font-weight:400;color:var(--text-2)"> kcal</span></div>
-            <button class="meal-del" onclick="deleteMeal(${e.id})" title="Delete">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
-            </button>
-          </div>`).join(''):`<div class="empty-state"><div class="empty-state-icon">🍽️</div><p>No meals logged today.</p></div>`}
-      </div>
-    </div>
+    ${histDays.length ? `
+      <div class="card">
+        <div class="card-title">Recent Days</div>
+        <div class="progress-table">
+          <div class="progress-header"><span>Date</span><span>kcal</span><span>Protein</span><span>Carbs</span><span>Fat</span></div>
+          ${histDays.map(d => {
+            const r = byDay[d];
+            const dt = new Date(d+'T12:00:00');
+            return `<div class="progress-row">
+              <span>${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()]} ${MONTHS[dt.getMonth()]} ${dt.getDate()}</span>
+              <span><strong>${r.cal}</strong></span>
+              <span>${r.p.toFixed(0)}g</span>
+              <span>${r.c.toFixed(0)}g</span>
+              <span>${r.f.toFixed(0)}g</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
   `;
-  document.getElementById('n-save')?.addEventListener('click', saveNutrition);
+  document.getElementById('n-save')?.addEventListener('click', saveDailyMacros);
 }
 
-async function saveNutrition() {
-  const name = document.getElementById('n-name')?.value.trim();
-  if (!name) { toast('Enter a meal name','error'); return; }
-  await api.post('/api/nutrition',{meal_name:name,calories:+document.getElementById('n-cal')?.value||0,protein:+document.getElementById('n-pro')?.value||0,carbs:+document.getElementById('n-car')?.value||0,fat:+document.getElementById('n-fat')?.value||0});
-  toast('Meal logged!');
-  renderNutritionToday();
-}
-
-async function deleteMeal(id) {
-  await api.del(`/api/nutrition/${id}`);
-  document.getElementById(`mr-${id}`)?.remove();
-  toast('Meal removed');
-}
-
-async function quickAddFood(name, cal, protein, carbs, fat) {
-  await api.post('/api/nutrition', { meal_name: name, calories: cal, protein, carbs, fat });
-  toast(`${name} added!`);
-  renderNutritionToday();
+async function saveDailyMacros() {
+  const cal = +document.getElementById('n-cal')?.value || 0;
+  const pro = +document.getElementById('n-pro')?.value || 0;
+  const car = +document.getElementById('n-car')?.value || 0;
+  const fat = +document.getElementById('n-fat')?.value || 0;
+  if (!cal && !pro) { toast('Enter at least calories or protein','error'); return; }
+  const btn = document.getElementById('n-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await api.patch('/api/nutrition/daily', { calories: cal, protein: pro, carbs: car, fat });
+    toast('Saved!');
+    renderNutritionToday();
+  } catch { toast('Failed to save','error'); btn.disabled=false; btn.textContent='Save'; }
 }
 
 // ── Meal Plan ─────────────────────────────────────────────

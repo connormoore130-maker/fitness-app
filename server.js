@@ -244,41 +244,48 @@ function generateAdaptivePlan(weekStart, db) {
 // ── Meal plan library ─────────────────────────────────────
 const MEALS = {
   breakfast: [
-    { name:'Scrambled Eggs & Avocado Toast',      calories:450, protein:28, carbs:35, fat:18, notes:'2 eggs, 1 slice whole grain, ½ avocado, chili flakes' },
-    { name:'Greek Yogurt & Berry Bowl',            calories:340, protein:26, carbs:42, fat:6,  notes:'200g full-fat Greek yogurt, mixed berries, granola, honey' },
-    { name:'Protein Oatmeal',                     calories:430, protein:34, carbs:52, fat:9,  notes:'80g oats, 1 scoop vanilla protein, banana, almond butter' },
-    { name:'Smoked Salmon Bagel',                 calories:490, protein:36, carbs:48, fat:14, notes:'Wholegrain bagel, cream cheese, 100g smoked salmon, capers' },
-    { name:'Spinach & Feta Omelette',             calories:340, protein:36, carbs:6,  fat:18, notes:'4 eggs, spinach, feta, cherry tomatoes, olive oil' },
-    { name:'Cottage Cheese Fruit Bowl',           calories:310, protein:30, carbs:28, fat:6,  notes:'250g cottage cheese, pineapple, chia seeds, walnuts' },
-    { name:'Protein Pancakes',                    calories:420, protein:38, carbs:44, fat:9,  notes:'Oat & protein powder pancakes, maple syrup, blueberries' },
+    { name:'Porridge with Berries & Honey',        calories:380, protein:14, carbs:60, fat:8,  notes:'80g rolled oats, 300ml semi-skimmed milk, handful blueberries, drizzle honey' },
+    { name:'Poached Eggs on Granary Toast',         calories:360, protein:22, carbs:38, fat:12, notes:'2 poached eggs, 2 slices granary toast, grilled tomatoes, black pepper' },
+    { name:'Smoked Salmon Scrambled Eggs',          calories:420, protein:36, carbs:20, fat:20, notes:'3 eggs, 80g smoked salmon, 1 slice wholemeal toast, chives' },
+    { name:'Greek Yogurt, Granola & Banana',        calories:390, protein:20, carbs:55, fat:8,  notes:'200g low-fat Greek yogurt, 40g granola, 1 banana, honey drizzle' },
+    { name:'Protein Porridge with Peanut Butter',   calories:460, protein:32, carbs:54, fat:14, notes:'80g oats, 1 scoop vanilla protein powder, 1 tbsp peanut butter, sliced banana' },
+    { name:'Spinach & Mushroom Omelette',           calories:320, protein:28, carbs:6,  fat:18, notes:'3 eggs, large handful spinach, chestnut mushrooms, pinch of chilli, olive oil' },
+    { name:'Overnight Oats with Chia & Berries',    calories:400, protein:18, carbs:56, fat:10, notes:'70g oats, 250ml oat milk, 1 tbsp chia seeds, mixed berries, left overnight' },
   ],
   snack: [
-    { name:'Whey Protein Shake',                  calories:165, protein:30, carbs:8,  fat:3,  notes:'1 scoop whey, 300ml oat milk, ice' },
-    { name:'Apple & Almond Butter',               calories:215, protein:5,  carbs:28, fat:10, notes:'1 medium apple, 1.5 tbsp almond butter' },
-    { name:'Hard-Boiled Eggs',                    calories:155, protein:13, carbs:1,  fat:10, notes:'2 large eggs, sea salt, paprika' },
-    { name:'Rice Cakes & Peanut Butter',          calories:245, protein:8,  carbs:32, fat:10, notes:'2 rice cakes, 1.5 tbsp natural peanut butter' },
-    { name:'Edamame with Sea Salt',               calories:185, protein:16, carbs:14, fat:7,  notes:'200g steamed edamame, sea salt, sesame oil' },
-    { name:'Tuna & Crackers',                     calories:225, protein:26, carbs:18, fat:5,  notes:'1 can tuna in water, whole grain crackers, lemon' },
-    { name:'Beef Jerky & Banana',                 calories:205, protein:19, carbs:22, fat:3,  notes:'30g low-sodium jerky, 1 small banana' },
-    { name:'Cottage Cheese & Berries',            calories:200, protein:22, carbs:16, fat:4,  notes:'150g cottage cheese, mixed berries' },
+    { name:'Protein Shake & Banana',               calories:280, protein:28, carbs:30, fat:3,  notes:'1 scoop whey, 300ml semi-skimmed milk, 1 banana' },
+    { name:'Oatcakes & Peanut Butter',             calories:230, protein:7,  carbs:28, fat:10, notes:'3 oatcakes, 1.5 tbsp natural peanut butter' },
+    { name:'Apple & Cottage Cheese',               calories:185, protein:18, carbs:20, fat:3,  notes:'1 medium apple, 150g low-fat cottage cheese' },
+    { name:'Rice Cakes & Cream Cheese',            calories:175, protein:6,  carbs:26, fat:5,  notes:'3 rice cakes, 2 tbsp low-fat cream cheese, cucumber slices' },
+    { name:'Greek Yogurt & Honey',                 calories:190, protein:16, carbs:22, fat:4,  notes:'175g low-fat Greek yogurt, 1 tsp honey, mixed seeds' },
+    { name:'Mixed Nuts & Dried Fruit',             calories:210, protein:6,  carbs:20, fat:13, notes:'25g mixed unsalted nuts, 20g raisins or dried apricot' },
+    { name:'Tuna & Oatcakes',                      calories:200, protein:24, carbs:16, fat:4,  notes:'1 can tuna in spring water, 3 oatcakes, squeeze of lemon' },
+    { name:'Hard-Boiled Eggs',                     calories:155, protein:13, carbs:1,  fat:10, notes:'2 large eggs, pinch of sea salt and paprika' },
   ],
   lunch: [
-    { name:'Grilled Chicken Wrap',                calories:530, protein:44, carbs:50, fat:12, notes:'Whole wheat wrap, 180g grilled chicken, salad, hummus, hot sauce' },
-    { name:'Tuna Niçoise Salad',                  calories:450, protein:40, carbs:24, fat:18, notes:'Tuna, 2 boiled eggs, olives, green beans, Dijon vinaigrette' },
-    { name:'Turkey & Avocado Sandwich',           calories:540, protein:42, carbs:46, fat:17, notes:'Sourdough, 150g turkey breast, avocado, mustard, spinach' },
-    { name:'Lean Beef Rice Bowl',                 calories:565, protein:44, carbs:58, fat:14, notes:'160g lean beef, jasmine rice, broccoli, soy-ginger sauce' },
-    { name:'Salmon Sushi Bowl',                   calories:490, protein:38, carbs:55, fat:12, notes:'Sushi rice, 150g raw salmon, edamame, cucumber, sriracha mayo' },
-    { name:'Greek Chicken Salad',                 calories:430, protein:40, carbs:18, fat:20, notes:'180g grilled chicken, feta, cucumber, tomato, olives, tzatziki' },
-    { name:'Pulled Chicken & Quinoa Bowl',        calories:515, protein:46, carbs:52, fat:11, notes:'Slow-cooked chicken, quinoa, roasted peppers, chimichurri' },
+    { name:'Tuna Mayo Jacket Potato',              calories:520, protein:38, carbs:62, fat:10, notes:'1 large jacket potato, 1 can tuna, 1 tbsp lighter mayo, side salad' },
+    { name:'Chicken & Sweetcorn Wrap',             calories:490, protein:40, carbs:48, fat:12, notes:'Wholemeal wrap, 160g cooked chicken breast, sweetcorn, lettuce, low-fat mayo' },
+    { name:'Prawn & Avocado Granary Roll',         calories:460, protein:28, carbs:44, fat:16, notes:'Granary roll, 120g cooked prawns, ½ avocado, lemon, mixed leaf' },
+    { name:'Chicken & Rice Salad',                 calories:480, protein:42, carbs:50, fat:10, notes:'160g grilled chicken breast, 80g basmati rice, cucumber, tomatoes, light dressing' },
+    { name:'Ham & Cheese Toastie with Salad',      calories:450, protein:30, carbs:42, fat:16, notes:'2 slices wholemeal bread, 2 slices lean ham, 30g reduced-fat cheddar, side salad' },
+    { name:'Smoked Salmon Pasta Salad',            calories:500, protein:34, carbs:54, fat:14, notes:'80g wholemeal pasta, 100g smoked salmon, capers, cucumber, lemon-dill dressing' },
+    { name:'Chicken & Lentil Soup with Bread',     calories:430, protein:36, carbs:46, fat:8,  notes:'Chunky chicken and puy lentil soup, 1 slice crusty wholemeal bread' },
   ],
   dinner: [
-    { name:'Salmon & Roasted Veg with Quinoa',    calories:625, protein:50, carbs:52, fat:20, notes:'200g salmon fillet, mixed roasted veg, 80g quinoa, lemon herb' },
-    { name:'Chicken Breast & Sweet Potato',       calories:580, protein:54, carbs:54, fat:10, notes:'220g chicken breast, 1 large sweet potato, steamed broccoli' },
-    { name:'Sirloin Steak & Asparagus',           calories:645, protein:58, carbs:18, fat:30, notes:'200g sirloin, asparagus, cherry tomatoes, chimichurri, olive oil' },
-    { name:'Turkey Meatballs & Zucchini Noodles', calories:525, protein:48, carbs:22, fat:24, notes:'Turkey meatballs, marinara, spiralized zucchini, parmesan' },
-    { name:'Grilled Shrimp Tacos',                calories:545, protein:42, carbs:56, fat:15, notes:'200g tiger shrimp, corn tortillas, cabbage slaw, avocado, lime' },
-    { name:'Baked Cod & Puy Lentils',             calories:485, protein:48, carbs:44, fat:9,  notes:'200g cod, puy lentils, roasted tomatoes, herb gremolata' },
-    { name:'Chicken Stir-Fry & Brown Rice',       calories:565, protein:50, carbs:58, fat:12, notes:'200g chicken thigh, mixed veg, brown rice, ginger-soy sauce' },
+    { name:'Chicken & Chorizo Jambalaya',          calories:580, protein:48, carbs:58, fat:14, notes:'200g chicken thigh, 50g chorizo, basmati rice, peppers, onion, tinned tomatoes, smoked paprika' },
+    { name:'Sweet Potato & Lentil Dhal',           calories:480, protein:22, carbs:70, fat:10, notes:'1 large sweet potato, red lentils, tin coconut milk, cumin, turmeric, spinach, naan' },
+    { name:'Healthy Chicken Tikka Masala',         calories:540, protein:50, carbs:44, fat:14, notes:'200g chicken breast, tikka paste, tin tomatoes, low-fat yogurt, basmati rice' },
+    { name:'One-Pot Chicken & Rice',               calories:510, protein:46, carbs:52, fat:10, notes:'Chicken thighs, basmati rice, peas, chicken stock, garlic, rosemary — all in one pan' },
+    { name:'Sausage Traybake',                     calories:520, protein:28, carbs:46, fat:22, notes:'4 lean pork sausages, new potatoes, peppers, red onion, cherry tomatoes, rosemary, olive oil' },
+    { name:'Baked Salmon with Crushed Peas',       calories:540, protein:52, carbs:32, fat:22, notes:'200g salmon fillet, crushed minted peas, baby new potatoes, lemon butter sauce' },
+    { name:'Curried Cod with Rice',                calories:460, protein:44, carbs:48, fat:8,  notes:'200g cod loin, mild curry sauce, basmati rice, wilted spinach, coriander' },
+    { name:'Healthy Chicken Korma',                calories:510, protein:46, carbs:42, fat:14, notes:'200g chicken breast, light korma sauce, brown rice, flaked almonds, naan thin' },
+    { name:'Easy Prawn & Harissa Spaghetti',       calories:520, protein:36, carbs:66, fat:10, notes:'200g king prawns, wholemeal spaghetti, harissa paste, tin tomatoes, garlic, parsley' },
+    { name:'One-Pan Beef Stew & Veg Mash',         calories:560, protein:44, carbs:46, fat:16, notes:'200g lean beef, Worcestershire sauce, root veg, potato & swede mash' },
+    { name:'Butter Bean & Vegetable Curry',        calories:440, protein:20, carbs:60, fat:10, notes:'2 tins butter beans, spinach, tin tomatoes, garam masala, garlic naan or rice' },
+    { name:'Turkey Mince Bolognese',               calories:520, protein:50, carbs:54, fat:10, notes:'250g turkey mince, wholemeal spaghetti, tin tomatoes, garlic, courgette, parmesan' },
+    { name:'Zesty Haddock with New Potatoes',      calories:470, protein:46, carbs:44, fat:10, notes:'200g smoked haddock, crushed new potatoes with parsley, mushy peas, lemon' },
+    { name:'Chicken & Bacon Risotto',              calories:550, protein:46, carbs:56, fat:12, notes:'180g chicken thigh, 2 rashers lean bacon, arborio rice, chicken stock, parmesan, peas' },
   ],
 };
 
@@ -483,6 +490,17 @@ app.delete('/api/nutrition/:id', (req, res) => {
   db.nutrition = db.nutrition.filter(n => n.id !== +req.params.id);
   writeDB(db);
   res.json({ ok:true });
+});
+
+app.patch('/api/nutrition/daily', (req, res) => {
+  const { calories=0, protein=0, carbs=0, fat=0, date } = req.body;
+  const db = readDB();
+  const day = date || localToday();
+  db.nutrition = db.nutrition.filter(n => n.date !== day);
+  const entry = { id: nextId(db.nutrition), meal_name: 'Daily total', calories:+calories, protein:+protein, carbs:+carbs, fat:+fat, date: day, created_at: new Date().toISOString() };
+  db.nutrition.push(entry);
+  writeDB(db);
+  res.json(entry);
 });
 
 // ── Training Plan ─────────────────────────────────────────
