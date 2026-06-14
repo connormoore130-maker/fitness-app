@@ -235,7 +235,19 @@ async function renderDashboard() {
         <div class="stat-sub">of ${s.calorieGoal} · ${calPct}%</div>
       </div>
     </div>
-    <div class="grid-2" style="margin-bottom:20px">
+    <div class="marquee-strip">
+      <div class="marquee-track">
+        <span>Stay Consistent</span><span class="marquee-sep">•</span>
+        <span>Crush Your Goals</span><span class="marquee-sep">•</span>
+        <span>Build The Habit</span><span class="marquee-sep">•</span>
+        <span>Earn It Daily</span><span class="marquee-sep">•</span>
+        <span>Stay Consistent</span><span class="marquee-sep">•</span>
+        <span>Crush Your Goals</span><span class="marquee-sep">•</span>
+        <span>Build The Habit</span><span class="marquee-sep">•</span>
+        <span>Earn It Daily</span><span class="marquee-sep">•</span>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:18px;margin-bottom:20px">
       ${todayPlan ? `
         <div class="today-plan-card">
           <div class="today-plan-label">Today's Workout</div>
@@ -733,27 +745,27 @@ function initWeightChart(entries) {
   const labels = entries.map(e=>fmtDateShort(e.date));
   const weights = entries.map(e=>e.weight);
   const avg = movingAverage(weights,7);
-  Chart.defaults.color = '#8A655A';
-  Chart.defaults.borderColor = '#BAAB92';
+  Chart.defaults.color = '#000';
+  Chart.defaults.borderColor = 'rgba(0,0,0,0.1)';
   weightChart = new Chart(canvas, {
     type:'line',
     data:{
       labels,
       datasets:[
-        {label:'Weight',data:weights,borderColor:'#A37764',backgroundColor:'rgba(163,119,100,0.08)',pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#A37764',pointBorderColor:'#fff',pointBorderWidth:2,tension:0.3,fill:true},
-        {label:'7-day avg',data:avg,borderColor:'#6e9174',borderDash:[5,4],borderWidth:2,pointRadius:0,tension:0.4,fill:false},
+        {label:'Weight',data:weights,borderColor:'#FF4D00',backgroundColor:'rgba(255,77,0,0.06)',pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#FF4D00',pointBorderColor:'#fff',pointBorderWidth:2,tension:0.2,fill:true},
+        {label:'7-day avg',data:avg,borderColor:'#000',borderDash:[4,3],borderWidth:2,pointRadius:0,tension:0.3,fill:false},
       ]
     },
     options:{
       responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{position:'top',labels:{boxWidth:12,boxHeight:2,padding:16,font:{size:12},color:'#8A655A'}},
-        tooltip:{backgroundColor:'#fff',titleColor:'#56453F',bodyColor:'#8A655A',borderColor:'#BAAB92',borderWidth:1,padding:10,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}`}},
+        legend:{position:'top',labels:{boxWidth:12,boxHeight:2,padding:16,font:{size:11,family:'Space Mono'},color:'rgba(0,0,0,0.5)'}},
+        tooltip:{backgroundColor:'#000',titleColor:'#FF4D00',bodyColor:'rgba(255,255,255,0.7)',borderColor:'#FF4D00',borderWidth:1,padding:10,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}`}},
       },
       scales:{
-        x:{grid:{color:'rgba(163,119,100,0.08)'},ticks:{maxTicksLimit:8,maxRotation:0,font:{size:11},color:'#A28777'}},
-        y:{grid:{color:'rgba(163,119,100,0.08)'},ticks:{font:{size:11},color:'#A28777',callback:v=>v.toFixed(1)}},
+        x:{grid:{color:'rgba(0,0,0,0.06)'},ticks:{maxTicksLimit:8,maxRotation:0,font:{size:10,family:'Space Mono'},color:'rgba(0,0,0,0.4)'}},
+        y:{grid:{color:'rgba(0,0,0,0.06)'},ticks:{font:{size:10,family:'Space Mono'},color:'rgba(0,0,0,0.4)',callback:v=>v.toFixed(1)}},
       }
     }
   });
@@ -956,7 +968,7 @@ function showMealDay(dow, byDay, s) {
             <div class="meal-plan-name">${escHtml(m.name)}</div>
             <div class="meal-plan-meta">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
             ${m.notes?`<div class="meal-plan-notes">${escHtml(m.notes)}</div>`:''}
-            <button class="btn btn-sm" style="margin-top:8px;font-size:11.5px;background:var(--accent-dim);color:var(--accent-2);border:1px solid rgba(124,106,238,.2)"
+            <button class="btn btn-sm" style="margin-top:8px;background:var(--accent-dim);color:var(--accent-2);border:2px solid #000"
               onclick="logMealFromPlan(${JSON.stringify(m).replace(/"/g,'&quot;')})">
               + Log This
             </button>
