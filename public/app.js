@@ -950,6 +950,12 @@ function showMealDay(dow, byDay, s) {
   const dayNames = ['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const totals = Object.values(dayMeals).reduce((a,m)=>({cal:a.cal+m.calories,p:a.p+m.protein,c:a.c+m.carbs,f:a.f+m.fat}),{cal:0,p:0,c:0,f:0});
 
+  // Collect all ingredients for the day
+  const allIngredients = MEAL_ORDER.flatMap(type => {
+    const m = dayMeals[type];
+    return (m && m.ingredients) ? m.ingredients : [];
+  });
+
   document.getElementById('meal-day-content').innerHTML = `
     <div class="card" style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -959,15 +965,27 @@ function showMealDay(dow, byDay, s) {
       ${MEAL_ORDER.map(type => {
         const m = dayMeals[type];
         if (!m) return '';
+        const recipeId = `recipe-${type}-${dow}`;
+        const hasRecipe = m.recipe && m.recipe.length;
         return `
           <div class="meal-plan-item">
             <div class="meal-plan-type">
               <span class="meal-plan-emoji">${MEAL_EMOJI[type]}</span>
               <span>${MEAL_LABELS[type]}</span>
+              ${!m.easy ? `<span style="margin-left:6px;font-size:10px;background:#f0e6d3;color:#9b6a2e;padding:2px 7px;border-radius:20px;font-weight:600">RECIPE ↓</span>` : ''}
             </div>
             <div class="meal-plan-name">${escHtml(m.name)}</div>
             <div class="meal-plan-meta">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
-            ${m.notes?`<div class="meal-plan-notes">${escHtml(m.notes)}</div>`:''}
+            ${m.notes ? `<div class="meal-plan-notes">${escHtml(m.notes)}</div>` : ''}
+            ${hasRecipe ? `
+              <button class="btn btn-sm" style="margin-top:8px;background:transparent;color:var(--text-2);border:1.5px solid var(--border);font-size:12px"
+                onclick="toggleRecipe('${recipeId}',this)">
+                📋 Quick Recipe Guide
+              </button>
+              <ol id="${recipeId}" style="display:none;margin:10px 0 4px;padding-left:18px;font-size:13px;color:var(--text-2);line-height:1.7">
+                ${m.recipe.map(step => `<li>${escHtml(step)}</li>`).join('')}
+              </ol>
+            ` : ''}
             <button class="btn btn-sm" style="margin-top:8px;background:var(--accent-dim);color:var(--accent-2);border:2px solid #000"
               onclick="logMealFromPlan(${JSON.stringify(m).replace(/"/g,'&quot;')})">
               + Log This
@@ -976,10 +994,30 @@ function showMealDay(dow, byDay, s) {
         `;
       }).join('')}
     </div>
+    ${allIngredients.length ? `
+    <div class="card" style="margin-bottom:10px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:12px">🛒 ${dayNames[dow]}'s Shopping List</div>
+      <ul style="list-style:none;padding:0;margin:0">
+        ${allIngredients.map(i => `
+          <li style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--text-2)">
+            <span style="width:18px;height:18px;border:1.5px solid var(--border);border-radius:4px;flex-shrink:0;display:inline-block"></span>
+            ${escHtml(i)}
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+    ` : ''}
     <div style="text-align:center;font-size:12px;color:var(--text-3);margin-top:8px">
       Daily total: ${totals.cal} kcal · ${totals.p.toFixed(0)}g protein · ${totals.c.toFixed(0)}g carbs · ${totals.f.toFixed(0)}g fat
     </div>
   `;
+}
+
+function toggleRecipe(id, btn) {
+  const el = document.getElementById(id);
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '📋 Hide Recipe' : '📋 Quick Recipe Guide';
 }
 
 async function logMealFromPlan(meal) {
@@ -995,47 +1033,176 @@ async function regenerateMealPlan() {
 }
 
 // ── Training Plan ─────────────────────────────────────────
+function isStrengthActivity(activity) {
+  return activity?.toLowerCase().includes('weight training') || false;
+}
+
 async function renderPlan() {
   const el = document.getElementById('view-plan');
   el.innerHTML = `<div class="page-header"><h1>Training Plan</h1></div><div class="card"><p style="color:var(--text-2)">Loading…</p></div>`;
-  const plan = await api.get('/api/plan');
+  const [plan, s] = await Promise.all([api.get('/api/plan'), Promise.resolve(Settings.get())]);
   const todayDow = new Date().getDay()===0?7:new Date().getDay();
+
+  const editIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 
   el.innerHTML = `
     <div class="page-header">
       <h1>Training Plan</h1>
-      <p>Rotates every 4 weeks · adapts based on what you complete</p>
+      <p>Tap ✏️ to edit a day · Log to record gym exercises</p>
     </div>
     <div class="card">
       <div class="card-title">This Week</div>
       <div class="plan-grid">
         ${plan.map(p=>{
-          const isToday=p.day_of_week===todayDow;
-          const dayLabel=['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'][p.day_of_week]||'?';
+          const isToday = p.day_of_week===todayDow;
+          const dayLabel = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'][p.day_of_week]||'?';
+          const strength = isStrengthActivity(p.activity);
           return `
-            <div class="plan-day ${isToday?'today':''} ${p.completed?'completed':''}" id="pd-${p.id}">
-              <div class="plan-day-label">${dayLabel}</div>
-              <div class="plan-emoji">${getActivityEmoji(p.activity)}</div>
-              <div class="plan-body">
-                <div class="plan-activity">${p.activity}</div>
-                <div class="plan-meta">
-                  ${p.duration_mins>0?`<span class="chip">${p.duration_mins} min</span>`:''}
-                  <span class="chip ${p.intensity}">${p.intensity.charAt(0).toUpperCase()+p.intensity.slice(1)}</span>
-                  ${isToday?'<span class="chip" style="background:var(--accent-dim);color:var(--accent-2)">Today</span>':''}
+            <div class="plan-day-slot">
+              <div class="plan-day ${isToday?'today':''} ${p.completed?'completed':''}" id="pd-${p.id}">
+                <div class="plan-day-label">${dayLabel}</div>
+                <div class="plan-emoji" id="pe-${p.id}">${getActivityEmoji(p.activity)}</div>
+                <div class="plan-body" id="pb-${p.id}">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <div class="plan-activity">${escHtml(p.activity)}</div>
+                    <button class="plan-edit-btn" onclick="event.stopPropagation();editPlanDay(${p.id},'${escHtml(p.activity)}')" title="Edit this day">${editIcon}</button>
+                  </div>
+                  <div class="plan-meta">
+                    ${p.duration_mins>0?`<span class="chip">${p.duration_mins} min</span>`:''}
+                    <span class="chip ${p.intensity}">${p.intensity.charAt(0).toUpperCase()+p.intensity.slice(1)}</span>
+                    ${isToday?'<span class="chip" style="background:var(--accent-dim);color:var(--accent-2)">Today</span>':''}
+                  </div>
                 </div>
+                ${strength ? `<button class="btn btn-ghost btn-sm plan-log-btn" id="plog-${p.id}" onclick="event.stopPropagation();togglePlanExpand(${p.id},'${p.program_id||''}','${s.weightUnit}')">Log</button>` : ''}
+                <button class="plan-check ${p.completed?'done':''}" onclick="togglePlan(${p.id},${p.completed})" title="Toggle complete">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
               </div>
-              <button class="plan-check ${p.completed?'done':''}" onclick="togglePlan(${p.id},${p.completed})" title="Toggle complete">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </button>
+              <div id="plan-expand-${p.id}" class="plan-day-expand hidden"></div>
             </div>
           `;
         }).join('')}
       </div>
       <p style="font-size:12px;color:var(--text-3);margin-top:16px;line-height:1.6">
-        Week templates rotate every 4 weeks for variety. High completion last week → increased intensity this week. Deload week included every 4th week.
+        Rotates every 4 weeks · adapts based on what you complete. Logging a workout auto-marks that day done.
       </p>
     </div>
   `;
+}
+
+const PLAN_QUICK_PICKS = [
+  ['🥊','Muay Thai – Technique'],
+  ['🥊','Muay Thai – Sparring'],
+  ['🥊','Muay Thai – Pad Work'],
+  ['🥊','Muay Thai – Heavy Bag'],
+  ['🤼','BJJ / Grappling'],
+  ['🏋️','Weight Training – Push'],
+  ['🏋️','Weight Training – Pull'],
+  ['🏋️','Weight Training – Legs'],
+  ['🏋️','Weight Training – Full Body'],
+  ['🏃','Running'],
+  ['🏃','Zone 2 Run'],
+  ['🚴','Cycling'],
+  ['⚡','Interval Sprints'],
+  ['💤','Rest'],
+];
+
+function editPlanDay(planId, currentActivity) {
+  const body = document.getElementById(`pb-${planId}`);
+  const logBtn = document.getElementById(`plog-${planId}`);
+  if (!body) return;
+
+  body.dataset.savedHtml = body.innerHTML;
+  if (logBtn) logBtn.style.display = 'none';
+
+  // Collapse expand panel if open
+  const expand = document.getElementById(`plan-expand-${planId}`);
+  if (expand && !expand.classList.contains('hidden')) expand.classList.add('hidden');
+
+  body.innerHTML = `
+    <input class="form-input plan-edit-input" id="ped-${planId}" value="${escHtml(currentActivity)}" autocomplete="off" />
+    <div class="plan-quick-picks">
+      ${PLAN_QUICK_PICKS.map(([e,a]) => `<button class="plan-pick-chip" onclick="document.getElementById('ped-${planId}').value='${a.replace(/'/g,'\\\'')}';">${e} ${a}</button>`).join('')}
+    </div>
+    <div class="plan-edit-actions">
+      <button class="btn btn-primary btn-sm" onclick="savePlanActivity(${planId})">Save</button>
+      <button class="btn btn-ghost btn-sm" onclick="cancelPlanEdit(${planId})">Cancel</button>
+    </div>
+  `;
+
+  const input = document.getElementById(`ped-${planId}`);
+  input?.focus();
+  input?.select();
+}
+
+function cancelPlanEdit(planId) {
+  const body = document.getElementById(`pb-${planId}`);
+  const logBtn = document.getElementById(`plog-${planId}`);
+  if (body?.dataset.savedHtml) body.innerHTML = body.dataset.savedHtml;
+  if (logBtn) logBtn.style.display = '';
+}
+
+async function savePlanActivity(planId) {
+  const input = document.getElementById(`ped-${planId}`);
+  const newActivity = input?.value.trim();
+  if (!newActivity) { toast('Enter an activity name', 'error'); return; }
+
+  const payload = { activity: newActivity };
+  if (!isStrengthActivity(newActivity)) payload.program_id = null;
+
+  await api.patch(`/api/plan/${planId}`, payload);
+  toast('Plan updated');
+  await renderPlan();
+
+  // Re-render dashboard if it's the active view
+  if (!document.getElementById('view-dashboard').classList.contains('hidden')) {
+    renderDashboard();
+  }
+}
+
+async function togglePlanExpand(planId, programId, unit) {
+  const expand = document.getElementById(`plan-expand-${planId}`);
+  if (!expand) return;
+
+  if (!expand.classList.contains('hidden')) {
+    expand.classList.add('hidden');
+    return;
+  }
+
+  expand.classList.remove('hidden');
+
+  // Already initialised — just reveal
+  if (expand._workoutId) return;
+
+  expand.innerHTML = `<div class="plan-expand-loading">Starting session…</div>`;
+
+  try {
+    const { workout, planDay } = await api.post(`/api/plan/${planId}/start`, {});
+    expand._workoutId = workout.id;
+
+    // Reflect completed state in the row
+    const row = document.getElementById(`pd-${planId}`);
+    if (planDay.completed) {
+      row?.classList.add('completed');
+      row?.querySelector('.plan-check')?.classList.add('done');
+    }
+
+    expand.innerHTML = `<div id="ex-logger-${workout.id}"></div>`;
+    const container = document.getElementById(`ex-logger-${workout.id}`);
+    await renderExerciseLogger(workout.id, unit, container);
+
+    // Auto-load the program preset if the template assigned one
+    if (programId === 'A' || programId === 'B') {
+      await loadPlanInLogger(workout.id, programId, unit);
+      // Highlight the active plan button
+      container.querySelectorAll('.plan-sel-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent.trim().includes(`Plan ${programId}`));
+      });
+    }
+  } catch {
+    expand.innerHTML = `<div class="plan-expand-loading" style="color:var(--red)">Failed to start — tap Log again</div>`;
+    expand._workoutId = null;
+  }
 }
 
 async function togglePlan(id, currently) {
@@ -1047,7 +1214,6 @@ async function togglePlan(id, currently) {
   check?.classList.toggle('done', !!completed);
   if (completed && check) {
     check.classList.remove('bounce');
-    // force reflow so the animation restarts cleanly if toggled rapidly
     void check.offsetWidth;
     check.classList.add('bounce');
     check.addEventListener('animationend', () => check.classList.remove('bounce'), { once: true });

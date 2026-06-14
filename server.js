@@ -115,76 +115,76 @@ function getCategoryFromActivity(activity) {
 const MARTIAL_ARTS_TEMPLATES = [
   [ // Week A – technique focus
     { day:1, activity:'Muay Thai – Technique',      dur:75, int:'medium' },
-    { day:2, activity:'Weight Training – Push',     dur:60, int:'high'   },
+    { day:2, activity:'Weight Training – Push',     dur:60, int:'high',   prog:'A' },
     { day:3, activity:'Zone 2 Run',                  dur:45, int:'low'    },
     { day:4, activity:'Muay Thai – Sparring',        dur:75, int:'high'   },
-    { day:5, activity:'Weight Training – Pull',     dur:60, int:'high'   },
+    { day:5, activity:'Weight Training – Pull',     dur:60, int:'high',   prog:'B' },
     { day:6, activity:'Muay Thai – Pad Work',        dur:75, int:'high'   },
     { day:7, activity:'Rest & Recovery',             dur:0,  int:'low'    },
   ],
   [ // Week B – conditioning focus
-    { day:1, activity:'Weight Training – Legs',     dur:65, int:'high'   },
+    { day:1, activity:'Weight Training – Legs',     dur:65, int:'high',   prog:'A' },
     { day:2, activity:'Muay Thai – Conditioning',    dur:60, int:'high'   },
-    { day:3, activity:'Mobility & Stretching',       dur:40, int:'low'    },
+    { day:3, activity:'Rest',                        dur:0,  int:'low'    },
     { day:4, activity:'Interval Sprints',            dur:35, int:'high'   },
     { day:5, activity:'Muay Thai – Technique',       dur:75, int:'medium' },
-    { day:6, activity:'Weight Training – Full Body', dur:60, int:'high'   },
+    { day:6, activity:'Weight Training – Full Body', dur:60, int:'high',   prog:'B' },
     { day:7, activity:'Rest',                        dur:0,  int:'low'    },
   ],
   [ // Week C – power focus
     { day:1, activity:'Muay Thai – Heavy Bag',       dur:60, int:'high'   },
-    { day:2, activity:'Weight Training – Push',     dur:65, int:'high'   },
+    { day:2, activity:'Weight Training – Push',     dur:65, int:'high',   prog:'A' },
     { day:3, activity:'Rowing',                      dur:40, int:'medium' },
     { day:4, activity:'Muay Thai – Pad Work',        dur:75, int:'high'   },
-    { day:5, activity:'Weight Training – Pull',     dur:65, int:'high'   },
+    { day:5, activity:'Weight Training – Pull',     dur:65, int:'high',   prog:'B' },
     { day:6, activity:'BJJ / Grappling',             dur:60, int:'high'   },
     { day:7, activity:'Rest',                        dur:0,  int:'low'    },
   ],
   [ // Week D – deload
     { day:1, activity:'Muay Thai – Shadow Boxing',   dur:45, int:'low'    },
-    { day:2, activity:'Weight Training – Full Body', dur:45, int:'low'    },
-    { day:3, activity:'Yoga',                        dur:45, int:'low'    },
+    { day:2, activity:'Weight Training – Full Body', dur:45, int:'low',   prog:'A' },
+    { day:3, activity:'Rest',                        dur:0,  int:'low'    },
     { day:4, activity:'Zone 2 Run',                  dur:40, int:'low'    },
     { day:5, activity:'Muay Thai – Technique',       dur:60, int:'low'    },
-    { day:6, activity:'Mobility & Stretching',       dur:45, int:'low'    },
+    { day:6, activity:'Rest',                        dur:0,  int:'low'    },
     { day:7, activity:'Rest',                        dur:0,  int:'low'    },
   ],
 ];
 
 const STRENGTH_TEMPLATES = [
   [ // Week A – push/pull/legs
-    { day:1, activity:'Weight Training – Push',     dur:70, int:'high'   },
-    { day:2, activity:'Weight Training – Pull',     dur:70, int:'high'   },
+    { day:1, activity:'Weight Training – Push',     dur:70, int:'high',   prog:'A' },
+    { day:2, activity:'Weight Training – Pull',     dur:70, int:'high',   prog:'B' },
     { day:3, activity:'Zone 2 Run',                  dur:45, int:'low'    },
-    { day:4, activity:'Weight Training – Legs',     dur:70, int:'high'   },
+    { day:4, activity:'Weight Training – Legs',     dur:70, int:'high',   prog:'A' },
     { day:5, activity:'HIIT',                        dur:35, int:'high'   },
-    { day:6, activity:'Weight Training – Full Body', dur:60, int:'medium' },
+    { day:6, activity:'Weight Training – Full Body', dur:60, int:'medium', prog:'B' },
     { day:7, activity:'Rest',                        dur:0,  int:'low'    },
   ],
   [ // Week B – heavy + cardio
-    { day:1, activity:'Weight Training – Legs',     dur:75, int:'high'   },
+    { day:1, activity:'Weight Training – Legs',     dur:75, int:'high',   prog:'A' },
     { day:2, activity:'Cycling',                     dur:45, int:'medium' },
-    { day:3, activity:'Weight Training – Push',     dur:75, int:'high'   },
-    { day:4, activity:'Mobility & Stretching',       dur:40, int:'low'    },
-    { day:5, activity:'Weight Training – Pull',     dur:75, int:'high'   },
+    { day:3, activity:'Weight Training – Push',     dur:75, int:'high',   prog:'B' },
+    { day:4, activity:'Rest',                        dur:0,  int:'low'    },
+    { day:5, activity:'Weight Training – Pull',     dur:75, int:'high',   prog:'A' },
     { day:6, activity:'Interval Sprints',            dur:30, int:'high'   },
     { day:7, activity:'Rest',                        dur:0,  int:'low'    },
   ],
   [ // Week C – volume
-    { day:1, activity:'Weight Training – Full Body', dur:75, int:'high'   },
+    { day:1, activity:'Weight Training – Full Body', dur:75, int:'high',   prog:'A' },
     { day:2, activity:'Running',                     dur:40, int:'medium' },
-    { day:3, activity:'Weight Training – Push',     dur:70, int:'high'   },
-    { day:4, activity:'Yoga',                        dur:40, int:'low'    },
-    { day:5, activity:'Weight Training – Pull',     dur:70, int:'high'   },
-    { day:6, activity:'Weight Training – Legs',     dur:70, int:'high'   },
+    { day:3, activity:'Weight Training – Push',     dur:70, int:'high',   prog:'B' },
+    { day:4, activity:'Rest',                        dur:0,  int:'low'    },
+    { day:5, activity:'Weight Training – Pull',     dur:70, int:'high',   prog:'A' },
+    { day:6, activity:'Weight Training – Legs',     dur:70, int:'high',   prog:'B' },
     { day:7, activity:'Rest',                        dur:0,  int:'low'    },
   ],
   [ // Week D – deload
-    { day:1, activity:'Weight Training – Full Body', dur:50, int:'low'    },
+    { day:1, activity:'Weight Training – Full Body', dur:50, int:'low',   prog:'A' },
     { day:2, activity:'Zone 2 Run',                  dur:40, int:'low'    },
-    { day:3, activity:'Weight Training – Full Body', dur:50, int:'low'    },
-    { day:4, activity:'Mobility & Stretching',       dur:45, int:'low'    },
-    { day:5, activity:'Weight Training – Full Body', dur:50, int:'low'    },
+    { day:3, activity:'Weight Training – Full Body', dur:50, int:'low',   prog:'B' },
+    { day:4, activity:'Rest',                        dur:0,  int:'low'    },
+    { day:5, activity:'Weight Training – Full Body', dur:50, int:'low',   prog:'A' },
     { day:6, activity:'Swimming',                    dur:40, int:'low'    },
     { day:7, activity:'Rest',                        dur:0,  int:'low'    },
   ],
@@ -230,6 +230,7 @@ function generateAdaptivePlan(weekStart, db) {
     week_start: weekStart,
     day_of_week: d.day,
     activity: d.activity,
+    program_id: d.prog || null,
     duration_mins: bump==='up' ? d.dur+5 : bump==='down' ? Math.max(d.dur-10,0) : d.dur,
     intensity: bump==='up' ? iUp[d.int] : bump==='down' ? iDown[d.int] : d.int,
     completed: false,
@@ -244,48 +245,150 @@ function generateAdaptivePlan(weekStart, db) {
 // ── Meal plan library ─────────────────────────────────────
 const MEALS = {
   breakfast: [
-    { name:'Porridge with Berries & Honey',        calories:380, protein:14, carbs:60, fat:8,  notes:'80g rolled oats, 300ml semi-skimmed milk, handful blueberries, drizzle honey' },
-    { name:'Poached Eggs on Granary Toast',         calories:360, protein:22, carbs:38, fat:12, notes:'2 poached eggs, 2 slices granary toast, grilled tomatoes, black pepper' },
-    { name:'Smoked Salmon Scrambled Eggs',          calories:420, protein:36, carbs:20, fat:20, notes:'3 eggs, 80g smoked salmon, 1 slice wholemeal toast, chives' },
-    { name:'Greek Yogurt, Granola & Banana',        calories:390, protein:20, carbs:55, fat:8,  notes:'200g low-fat Greek yogurt, 40g granola, 1 banana, honey drizzle' },
-    { name:'Protein Porridge with Peanut Butter',   calories:460, protein:32, carbs:54, fat:14, notes:'80g oats, 1 scoop vanilla protein powder, 1 tbsp peanut butter, sliced banana' },
-    { name:'Spinach & Mushroom Omelette',           calories:320, protein:28, carbs:6,  fat:18, notes:'3 eggs, large handful spinach, chestnut mushrooms, pinch of chilli, olive oil' },
-    { name:'Overnight Oats with Chia & Berries',    calories:400, protein:18, carbs:56, fat:10, notes:'70g oats, 250ml oat milk, 1 tbsp chia seeds, mixed berries, left overnight' },
+    {
+      name:'Porridge with Berries & Honey', calories:380, protein:14, carbs:60, fat:8, easy:true,
+      ingredients:['80g rolled oats','300ml semi-skimmed milk','Handful blueberries','1 tsp honey'],
+      notes:'Mix oats and milk, microwave 3 mins, stir, top with berries and honey.'
+    },
+    {
+      name:'Scrambled Eggs on Toast', calories:360, protein:24, carbs:36, fat:14, easy:true,
+      ingredients:['3 large eggs','2 slices wholemeal bread','Knob of butter','Salt & pepper'],
+      notes:'Whisk eggs, cook slowly in buttered pan on low heat, serve on toast.'
+    },
+    {
+      name:'Greek Yogurt, Granola & Banana', calories:390, protein:20, carbs:55, fat:8, easy:true,
+      ingredients:['200g low-fat Greek yogurt','40g granola','1 banana','1 tsp honey'],
+      notes:'Layer yogurt, granola and sliced banana in a bowl. Drizzle honey.'
+    },
+    {
+      name:'Protein Porridge with Peanut Butter', calories:460, protein:32, carbs:54, fat:14, easy:true,
+      ingredients:['80g rolled oats','300ml milk','1 scoop vanilla protein powder','1 tbsp peanut butter','1 banana'],
+      notes:'Cook oats in milk, stir in protein powder off the heat, top with peanut butter and banana slices.'
+    },
+    {
+      name:'Spinach & Mushroom Omelette', calories:320, protein:28, carbs:6, fat:18, easy:true,
+      ingredients:['3 eggs','Large handful spinach','100g chestnut mushrooms','1 tsp olive oil','Salt & pepper'],
+      notes:'Fry mushrooms, add spinach until wilted. Pour in whisked eggs, fold when just set.'
+    },
+    {
+      name:'Overnight Oats with Chia & Berries', calories:400, protein:18, carbs:56, fat:10, easy:true,
+      ingredients:['70g rolled oats','250ml oat milk','1 tbsp chia seeds','Handful mixed berries'],
+      notes:'Mix oats, oat milk and chia seeds in a jar. Refrigerate overnight. Top with berries to serve.'
+    },
+    {
+      name:'Smoked Salmon & Eggs on Toast', calories:420, protein:36, carbs:20, fat:20, easy:true,
+      ingredients:['3 eggs','80g smoked salmon','1 slice wholemeal toast','Small bunch chives'],
+      notes:'Scramble eggs, serve on toast with smoked salmon and snipped chives.'
+    },
   ],
   snack: [
-    { name:'Protein Shake & Banana',               calories:280, protein:28, carbs:30, fat:3,  notes:'1 scoop whey, 300ml semi-skimmed milk, 1 banana' },
-    { name:'Oatcakes & Peanut Butter',             calories:230, protein:7,  carbs:28, fat:10, notes:'3 oatcakes, 1.5 tbsp natural peanut butter' },
-    { name:'Apple & Cottage Cheese',               calories:185, protein:18, carbs:20, fat:3,  notes:'1 medium apple, 150g low-fat cottage cheese' },
-    { name:'Rice Cakes & Cream Cheese',            calories:175, protein:6,  carbs:26, fat:5,  notes:'3 rice cakes, 2 tbsp low-fat cream cheese, cucumber slices' },
-    { name:'Greek Yogurt & Honey',                 calories:190, protein:16, carbs:22, fat:4,  notes:'175g low-fat Greek yogurt, 1 tsp honey, mixed seeds' },
-    { name:'Mixed Nuts & Dried Fruit',             calories:210, protein:6,  carbs:20, fat:13, notes:'25g mixed unsalted nuts, 20g raisins or dried apricot' },
-    { name:'Tuna & Oatcakes',                      calories:200, protein:24, carbs:16, fat:4,  notes:'1 can tuna in spring water, 3 oatcakes, squeeze of lemon' },
-    { name:'Hard-Boiled Eggs',                     calories:155, protein:13, carbs:1,  fat:10, notes:'2 large eggs, pinch of sea salt and paprika' },
+    { name:'Protein Shake & Banana',   calories:280, protein:28, carbs:30, fat:3,  easy:true, ingredients:['1 scoop whey protein','300ml semi-skimmed milk','1 banana'],       notes:'Blend or shake together.' },
+    { name:'Oatcakes & Peanut Butter', calories:230, protein:7,  carbs:28, fat:10, easy:true, ingredients:['3 oatcakes','1.5 tbsp natural peanut butter'],                     notes:'Spread peanut butter on oatcakes.' },
+    { name:'Apple & Cottage Cheese',   calories:185, protein:18, carbs:20, fat:3,  easy:true, ingredients:['1 medium apple','150g low-fat cottage cheese'],                    notes:'Slice apple, serve alongside cottage cheese.' },
+    { name:'Greek Yogurt & Honey',     calories:190, protein:16, carbs:22, fat:4,  easy:true, ingredients:['175g low-fat Greek yogurt','1 tsp honey','1 tsp mixed seeds'],      notes:'Top yogurt with honey and seeds.' },
+    { name:'Mixed Nuts & Dried Fruit', calories:210, protein:6,  carbs:20, fat:13, easy:true, ingredients:['25g mixed unsalted nuts','20g raisins or dried apricots'],         notes:'Combine and eat.' },
+    { name:'Tuna & Oatcakes',          calories:200, protein:24, carbs:16, fat:4,  easy:true, ingredients:['1 can tuna in spring water','3 oatcakes','Squeeze of lemon'],      notes:'Drain tuna, squeeze lemon over, serve on oatcakes.' },
+    { name:'Hard-Boiled Eggs',         calories:155, protein:13, carbs:1,  fat:10, easy:true, ingredients:['2 large eggs','Pinch sea salt','Pinch paprika'],                   notes:'Boil eggs 8 mins, cool under cold water, peel and season.' },
+    { name:'Rice Cakes & Cream Cheese',calories:175, protein:6,  carbs:26, fat:5,  easy:true, ingredients:['3 rice cakes','2 tbsp low-fat cream cheese','½ cucumber'],        notes:'Spread cream cheese, top with cucumber slices.' },
   ],
   lunch: [
-    { name:'Tuna Mayo Jacket Potato',              calories:520, protein:38, carbs:62, fat:10, notes:'1 large jacket potato, 1 can tuna, 1 tbsp lighter mayo, side salad' },
-    { name:'Chicken & Sweetcorn Wrap',             calories:490, protein:40, carbs:48, fat:12, notes:'Wholemeal wrap, 160g cooked chicken breast, sweetcorn, lettuce, low-fat mayo' },
-    { name:'Prawn & Avocado Granary Roll',         calories:460, protein:28, carbs:44, fat:16, notes:'Granary roll, 120g cooked prawns, ½ avocado, lemon, mixed leaf' },
-    { name:'Chicken & Rice Salad',                 calories:480, protein:42, carbs:50, fat:10, notes:'160g grilled chicken breast, 80g basmati rice, cucumber, tomatoes, light dressing' },
-    { name:'Ham & Cheese Toastie with Salad',      calories:450, protein:30, carbs:42, fat:16, notes:'2 slices wholemeal bread, 2 slices lean ham, 30g reduced-fat cheddar, side salad' },
-    { name:'Smoked Salmon Pasta Salad',            calories:500, protein:34, carbs:54, fat:14, notes:'80g wholemeal pasta, 100g smoked salmon, capers, cucumber, lemon-dill dressing' },
-    { name:'Chicken & Lentil Soup with Bread',     calories:430, protein:36, carbs:46, fat:8,  notes:'Chunky chicken and puy lentil soup, 1 slice crusty wholemeal bread' },
+    {
+      name:'Tuna Mayo Jacket Potato', calories:520, protein:38, carbs:62, fat:10, easy:true,
+      ingredients:['1 large baking potato','1 can tuna in spring water','1 tbsp lighter mayo','Side salad leaves','Cherry tomatoes'],
+      notes:'Microwave potato 8–10 mins until soft. Mix drained tuna with mayo. Split potato and fill. Serve with salad.'
+    },
+    {
+      name:'Chicken & Sweetcorn Wrap', calories:490, protein:40, carbs:48, fat:12, easy:true,
+      ingredients:['1 wholemeal wrap','160g cooked chicken breast','3 tbsp sweetcorn','Handful lettuce','1 tbsp low-fat mayo'],
+      notes:'Slice chicken, layer all ingredients on wrap and roll up tightly.'
+    },
+    {
+      name:'Prawn & Avocado Roll', calories:460, protein:28, carbs:44, fat:16, easy:true,
+      ingredients:['1 granary roll','120g cooked king prawns','½ ripe avocado','Mixed leaf salad','Squeeze of lemon'],
+      notes:'Mash avocado with lemon, spread on roll, top with prawns and salad leaves.'
+    },
+    {
+      name:'Chicken & Rice Salad', calories:480, protein:42, carbs:50, fat:10, easy:true,
+      ingredients:['160g grilled chicken breast','80g basmati rice (dry weight)','½ cucumber','Handful cherry tomatoes','2 tbsp light dressing'],
+      notes:'Cook rice, cool slightly. Slice chicken and toss everything together with dressing.'
+    },
+    {
+      name:'Ham & Cheese Toastie', calories:450, protein:30, carbs:42, fat:16, easy:true,
+      ingredients:['2 slices wholemeal bread','2 slices lean ham','30g reduced-fat cheddar','Side salad'],
+      notes:'Layer ham and cheese between bread, toast in a pan or toastie maker until golden.'
+    },
+    {
+      name:'Smoked Salmon Pasta Salad', calories:500, protein:34, carbs:54, fat:14, easy:false,
+      ingredients:['80g wholemeal pasta','100g smoked salmon','1 tbsp capers','½ cucumber','Juice of ½ lemon','1 tbsp olive oil','Small bunch dill'],
+      notes:'Cook pasta, drain and cool. Flake salmon, slice cucumber, toss everything with lemon and olive oil. Scatter dill.',
+      recipe:['Cook pasta per packet. Drain and rinse under cold water.','Tear smoked salmon into pieces.','Dice cucumber, roughly chop dill.','Toss pasta with salmon, cucumber, capers, lemon juice and olive oil.','Season with black pepper and serve.']
+    },
+    {
+      name:'Lentil & Vegetable Soup', calories:380, protein:22, carbs:52, fat:6, easy:true,
+      ingredients:['1 can green lentils','1 carrot','1 celery stick','1 onion','500ml vegetable stock','1 tsp cumin','1 slice wholemeal bread'],
+      notes:'Fry diced veg 5 mins. Add lentils, stock and cumin. Simmer 15 mins. Blend half for a creamy texture. Serve with bread.'
+    },
   ],
   dinner: [
-    { name:'Chicken & Chorizo Jambalaya',          calories:580, protein:48, carbs:58, fat:14, notes:'200g chicken thigh, 50g chorizo, basmati rice, peppers, onion, tinned tomatoes, smoked paprika' },
-    { name:'Sweet Potato & Lentil Dhal',           calories:480, protein:22, carbs:70, fat:10, notes:'1 large sweet potato, red lentils, tin coconut milk, cumin, turmeric, spinach, naan' },
-    { name:'Healthy Chicken Tikka Masala',         calories:540, protein:50, carbs:44, fat:14, notes:'200g chicken breast, tikka paste, tin tomatoes, low-fat yogurt, basmati rice' },
-    { name:'One-Pot Chicken & Rice',               calories:510, protein:46, carbs:52, fat:10, notes:'Chicken thighs, basmati rice, peas, chicken stock, garlic, rosemary — all in one pan' },
-    { name:'Sausage Traybake',                     calories:520, protein:28, carbs:46, fat:22, notes:'4 lean pork sausages, new potatoes, peppers, red onion, cherry tomatoes, rosemary, olive oil' },
-    { name:'Baked Salmon with Crushed Peas',       calories:540, protein:52, carbs:32, fat:22, notes:'200g salmon fillet, crushed minted peas, baby new potatoes, lemon butter sauce' },
-    { name:'Curried Cod with Rice',                calories:460, protein:44, carbs:48, fat:8,  notes:'200g cod loin, mild curry sauce, basmati rice, wilted spinach, coriander' },
-    { name:'Healthy Chicken Korma',                calories:510, protein:46, carbs:42, fat:14, notes:'200g chicken breast, light korma sauce, brown rice, flaked almonds, naan thin' },
-    { name:'Easy Prawn & Harissa Spaghetti',       calories:520, protein:36, carbs:66, fat:10, notes:'200g king prawns, wholemeal spaghetti, harissa paste, tin tomatoes, garlic, parsley' },
-    { name:'One-Pan Beef Stew & Veg Mash',         calories:560, protein:44, carbs:46, fat:16, notes:'200g lean beef, Worcestershire sauce, root veg, potato & swede mash' },
-    { name:'Butter Bean & Vegetable Curry',        calories:440, protein:20, carbs:60, fat:10, notes:'2 tins butter beans, spinach, tin tomatoes, garam masala, garlic naan or rice' },
-    { name:'Turkey Mince Bolognese',               calories:520, protein:50, carbs:54, fat:10, notes:'250g turkey mince, wholemeal spaghetti, tin tomatoes, garlic, courgette, parmesan' },
-    { name:'Zesty Haddock with New Potatoes',      calories:470, protein:46, carbs:44, fat:10, notes:'200g smoked haddock, crushed new potatoes with parsley, mushy peas, lemon' },
-    { name:'Chicken & Bacon Risotto',              calories:550, protein:46, carbs:56, fat:12, notes:'180g chicken thigh, 2 rashers lean bacon, arborio rice, chicken stock, parmesan, peas' },
+    {
+      name:'Chicken Traybake with Veg', calories:520, protein:46, carbs:38, fat:14, easy:true,
+      ingredients:['2 chicken thighs (bone-in)','2 medium potatoes','1 red pepper','1 courgette','1 red onion','2 tbsp olive oil','1 tsp smoked paprika','Salt & pepper'],
+      notes:'Chop veg, toss everything with oil and paprika on a tray. Roast at 200°C for 40 mins.'
+    },
+    {
+      name:'One-Pot Chicken & Rice', calories:510, protein:46, carbs:52, fat:10, easy:true,
+      ingredients:['4 chicken thighs','180g basmati rice','400ml chicken stock','100g frozen peas','3 garlic cloves','1 sprig rosemary','1 tbsp olive oil'],
+      notes:'Brown chicken in oil. Add garlic, rice, stock and rosemary. Cover and simmer 20 mins until rice absorbs stock. Stir in peas.'
+    },
+    {
+      name:'Baked Salmon with New Potatoes & Peas', calories:540, protein:52, carbs:32, fat:22, easy:true,
+      ingredients:['200g salmon fillet','200g baby new potatoes','150g frozen peas','Juice of ½ lemon','1 tbsp butter','Small bunch fresh mint'],
+      notes:'Boil potatoes 15 mins. Bake salmon at 200°C for 12–15 mins. Crush peas with butter and mint. Serve with a squeeze of lemon.'
+    },
+    {
+      name:'Turkey Mince Bolognese', calories:520, protein:50, carbs:54, fat:10, easy:true,
+      ingredients:['250g turkey mince','80g wholemeal spaghetti','1 tin chopped tomatoes','1 courgette','2 garlic cloves','1 tsp olive oil','Parmesan to serve'],
+      notes:'Fry garlic and courgette. Add mince and brown. Add tomatoes, simmer 20 mins. Cook pasta and serve with parmesan.'
+    },
+    {
+      name:'Sausage & Veg Traybake', calories:520, protein:28, carbs:46, fat:22, easy:true,
+      ingredients:['4 lean pork sausages','300g new potatoes','1 red pepper','1 red onion','Handful cherry tomatoes','1 tbsp olive oil','1 tsp dried rosemary'],
+      notes:'Halve potatoes, chop veg. Toss everything in oil and rosemary on a large tray. Roast at 200°C for 35–40 mins.'
+    },
+    {
+      name:'Butter Bean & Tomato Stew', calories:440, protein:20, carbs:60, fat:10, easy:true,
+      ingredients:['2 tins butter beans','1 tin chopped tomatoes','1 onion','2 garlic cloves','1 tsp smoked paprika','Large handful spinach','1 tsp olive oil','Crusty bread to serve'],
+      notes:'Fry onion and garlic. Add tomatoes, beans and paprika. Simmer 15 mins. Stir in spinach. Serve with bread.'
+    },
+    {
+      name:'Healthy Chicken Tikka Masala', calories:540, protein:50, carbs:44, fat:14, easy:false,
+      ingredients:['200g chicken breast','2 tbsp tikka paste','1 tin chopped tomatoes','3 tbsp low-fat yogurt','180g basmati rice','1 onion','1 tsp oil','Fresh coriander'],
+      notes:'Marinate chicken in tikka paste for 10 mins if time allows.',
+      recipe:['Fry diced onion in oil for 5 mins until soft.','Add tikka paste and cook 1 min.','Add diced chicken and brown for 3–4 mins.','Pour in tomatoes, simmer 15 mins until chicken cooked through.','Remove from heat, stir in yogurt.','Cook rice per packet. Serve topped with coriander.']
+    },
+    {
+      name:'Easy Prawn & Tomato Spaghetti', calories:520, protein:36, carbs:66, fat:10, easy:false,
+      ingredients:['200g raw king prawns','80g wholemeal spaghetti','1 tin chopped tomatoes','2 garlic cloves','1 tsp olive oil','Small bunch parsley','Pinch of chilli flakes'],
+      notes:'A quick 20-minute pasta dish.',
+      recipe:['Cook spaghetti per packet.','Fry garlic and chilli in oil for 1 min.','Add prawns and cook 2–3 mins until pink.','Pour in tomatoes, simmer 5 mins.','Drain pasta, toss through the sauce.','Scatter chopped parsley and serve.']
+    },
+    {
+      name:'Smoked Haddock with New Potatoes & Mushy Peas', calories:470, protein:46, carbs:44, fat:10, easy:true,
+      ingredients:['200g smoked haddock fillet','200g new potatoes','150g frozen peas','Knob of butter','Juice of ½ lemon','Fresh parsley'],
+      notes:'Boil potatoes. Poach haddock in simmering water 6–8 mins. Mash peas with butter. Serve with potatoes and a squeeze of lemon.'
+    },
+    {
+      name:'Sweet Potato & Lentil Dhal', calories:480, protein:22, carbs:70, fat:10, easy:false,
+      ingredients:['1 large sweet potato','150g red lentils','1 tin coconut milk','1 tin chopped tomatoes','1 tsp cumin','1 tsp turmeric','Large handful spinach','1 garlic clove','1 tsp oil','Naan bread to serve'],
+      notes:'A warming one-pot curry — very filling.',
+      recipe:['Peel and dice sweet potato into 2cm cubes.','Fry garlic in oil 1 min. Add cumin and turmeric, cook 30 secs.','Add lentils, coconut milk, tomatoes and sweet potato. Stir well.','Simmer uncovered for 20–25 mins until lentils are soft and potato cooked.','Stir in spinach until wilted. Season well.','Serve with warm naan.']
+    },
+    {
+      name:'Chicken & Chorizo One-Pot', calories:560, protein:48, carbs:50, fat:16, easy:false,
+      ingredients:['2 chicken thighs','50g chorizo','180g basmati rice','1 tin chopped tomatoes','200ml chicken stock','1 red pepper','1 onion','1 tsp smoked paprika','1 tsp oil'],
+      notes:'A flavour-packed one-pan dinner inspired by jambalaya.',
+      recipe:['Slice chorizo and fry in oil until it releases its oils. Remove and set aside.','Brown chicken thighs in the same pan.','Fry diced onion and pepper until soft.','Add paprika, rice, tomatoes, stock and chorizo. Stir.','Nestle chicken back in, cover and simmer 20 mins until rice is cooked.','Check seasoning and serve straight from the pan.']
+    },
   ],
 };
 
@@ -370,8 +473,22 @@ app.post('/api/workouts', (req, res) => {
   if (!text?.trim()) return res.status(400).json({ error: 'text required' });
   const db = readDB();
   const parsed = parseWorkoutText(text);
-  const entry = { id: nextId(db.workouts), raw_text: text.trim(), ...parsed, date: date || localToday(), created_at: new Date().toISOString() };
+  const workoutDate = date || localToday();
+  const entry = { id: nextId(db.workouts), raw_text: text.trim(), ...parsed, date: workoutDate, created_at: new Date().toISOString() };
   db.workouts.push(entry);
+
+  // Auto-complete matching training plan day (skip rest days)
+  const dateObj = new Date(workoutDate + 'T12:00:00');
+  const weekStart = getWeekStart(dateObj);
+  const dow = dateObj.getDay() === 0 ? 7 : dateObj.getDay();
+  const planDay = db.trainingPlan.find(p =>
+    p.week_start === weekStart &&
+    p.day_of_week === dow &&
+    !p.completed &&
+    !p.activity.toLowerCase().startsWith('rest')
+  );
+  if (planDay) planDay.completed = true;
+
   writeDB(db);
   res.json(entry);
 });
@@ -515,9 +632,43 @@ app.get('/api/plan', (_req, res) => {
 app.patch('/api/plan/:id', (req, res) => {
   const db = readDB();
   const item = db.trainingPlan.find(p => p.id === +req.params.id);
-  if (item) item.completed = !!req.body.completed;
+  if (item) {
+    if (req.body.completed !== undefined) item.completed = !!req.body.completed;
+    if (req.body.program_id !== undefined) item.program_id = req.body.program_id;
+    if (req.body.activity   !== undefined) item.activity   = req.body.activity;
+  }
   writeDB(db);
   res.json({ ok:true });
+});
+
+app.post('/api/plan/:id/start', (req, res) => {
+  const db = readDB();
+  const planDay = db.trainingPlan.find(p => p.id === +req.params.id);
+  if (!planDay) return res.status(404).json({ error: 'not found' });
+  const workoutDate = req.body.date || localToday();
+  const workout = {
+    id: nextId(db.workouts),
+    raw_text: planDay.activity,
+    activity: planDay.activity,
+    duration_mins: planDay.duration_mins || null,
+    intensity: planDay.intensity || 'medium',
+    category: getCategoryFromActivity(planDay.activity),
+    date: workoutDate,
+    created_at: new Date().toISOString(),
+  };
+  db.workouts.push(workout);
+  if (!planDay.completed) planDay.completed = true;
+  writeDB(db);
+  res.json({ workout, planDay });
+});
+
+app.post('/api/plan/regenerate', (req, res) => {
+  const db = readDB();
+  const weekStart = getWeekStart(new Date());
+  db.trainingPlan = db.trainingPlan.filter(p => p.week_start !== weekStart);
+  writeDB(db);
+  const plan = generateAdaptivePlan(weekStart, readDB());
+  res.json(plan);
 });
 
 // ── Meal Plan ─────────────────────────────────────────────
