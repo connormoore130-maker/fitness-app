@@ -920,10 +920,13 @@ async function renderMealPlan() {
   const dayNames = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const daysFull = ['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
-  // Build deduplicated weekly shopping list
-  const ingredientSet = new Set();
-  plan.forEach(m => (m.ingredients||[]).forEach(i => ingredientSet.add(i)));
-  const weeklyIngredients = [...ingredientSet].sort();
+  // Build deduplicated weekly shopping list split by must/nice
+  const mustSet = new Set(), niceSet = new Set();
+  plan.forEach(m => {
+    (m.must||[]).forEach(i => mustSet.add(i));
+    (m.nice||[]).forEach(i => { if (!mustSet.has(i)) niceSet.add(i); });
+  });
+  const weeklyIngredients = { must:[...mustSet].sort(), nice:[...niceSet].sort() };
 
   content.innerHTML = `
     <div class="meal-plan-header">
@@ -950,21 +953,45 @@ async function renderMealPlan() {
 
 function showWeeklyShopping() {
   const { weeklyIngredients } = window._mealPlanData || {};
+  const { must=[], nice=[] } = weeklyIngredients || {};
   document.querySelectorAll('.day-tab').forEach(b => b.classList.toggle('active', b.dataset.day === 'shop'));
+
+  const renderList = items => items.map(i => `
+    <li style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px">
+      <span class="shop-box" style="display:inline-block;width:20px;height:20px;border:1.5px solid var(--border);border-radius:5px;flex-shrink:0;cursor:pointer"></span>
+      <span class="shop-label" style="cursor:pointer;color:var(--text-1)" onclick="toggleShopItem(this)">${escHtml(i)}</span>
+    </li>
+  `).join('');
+
   document.getElementById('meal-day-content').innerHTML = `
-    <div class="card">
-      <div style="font-weight:600;font-size:15px;margin-bottom:14px">🛒 Weekly Shopping List</div>
-      <ul style="list-style:none;padding:0;margin:0">
-        ${(weeklyIngredients||[]).map(i=>`
-          <li style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--text-1)">
-            <span onclick="this.style.textDecoration=this.style.textDecoration?'':'line-through';this.previousElementSibling&&(this.previousElementSibling.style.background=this.style.textDecoration?'var(--accent)':'');this.parentElement.querySelector('span:first-child').style.background=this.style.textDecoration?'var(--accent)':''"
-              style="display:inline-block;cursor:pointer;width:20px;height:20px;border:1.5px solid var(--border);border-radius:5px;flex-shrink:0"></span>
-            <span style="cursor:pointer" onclick="const box=this.previousElementSibling;const checked=this.style.textDecoration==='line-through';this.style.textDecoration=checked?'':'line-through';this.style.color=checked?'var(--text-1)':'var(--text-3)';box.style.background=checked?'':'var(--accent-2)';box.style.borderColor=checked?'var(--border)':'var(--accent-2)'">${escHtml(i)}</span>
-          </li>
-        `).join('')}
-      </ul>
+    <div class="card" style="margin-bottom:10px">
+      <div style="font-weight:600;font-size:15px;margin-bottom:4px">🛒 Must Have</div>
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Fresh, fridge & key items</div>
+      <ul style="list-style:none;padding:0;margin:0">${renderList(must)}</ul>
     </div>
+    ${nice.length ? `
+    <div class="card">
+      <div style="font-weight:600;font-size:15px;margin-bottom:4px">✨ Nice to Have</div>
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Pantry staples — check before buying</div>
+      <ul style="list-style:none;padding:0;margin:0">${renderList(nice)}</ul>
+    </div>` : ''}
   `;
+
+  document.querySelectorAll('.shop-box').forEach(box => {
+    box.addEventListener('click', () => {
+      const label = box.nextElementSibling;
+      toggleShopItem(label);
+    });
+  });
+}
+
+function toggleShopItem(label) {
+  const ticked = label.style.textDecoration === 'line-through';
+  label.style.textDecoration = ticked ? '' : 'line-through';
+  label.style.color = ticked ? 'var(--text-1)' : 'var(--text-3)';
+  const box = label.previousElementSibling;
+  box.style.background = ticked ? '' : 'var(--accent-2)';
+  box.style.borderColor = ticked ? 'var(--border)' : 'var(--accent-2)';
 }
 
 function showMealDay(dow, byDay, s) {
