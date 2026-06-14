@@ -920,6 +920,11 @@ async function renderMealPlan() {
   const dayNames = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const daysFull = ['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
+  // Build deduplicated weekly shopping list
+  const ingredientSet = new Set();
+  plan.forEach(m => (m.ingredients||[]).forEach(i => ingredientSet.add(i)));
+  const weeklyIngredients = [...ingredientSet].sort();
+
   content.innerHTML = `
     <div class="meal-plan-header">
       <div>
@@ -930,6 +935,7 @@ async function renderMealPlan() {
     </div>
 
     <div class="day-tabs">
+      <button class="day-tab ${todayDow?'':'active'}" onclick="showWeeklyShopping()" data-day="shop" id="tab-shop">🛒 List</button>
       ${Object.keys(byDay).map(d=>`
         <button class="day-tab ${+d===todayDow?'active':''}" onclick="showMealDay(${d})" data-day="${d}">${dayNames[d]}</button>
       `).join('')}
@@ -938,8 +944,27 @@ async function renderMealPlan() {
     <div id="meal-day-content"></div>
   `;
 
+  window._mealPlanData = { byDay, s, weeklyIngredients };
   showMealDay(todayDow, byDay, s);
-  window._mealPlanData = { byDay, s };
+}
+
+function showWeeklyShopping() {
+  const { weeklyIngredients } = window._mealPlanData || {};
+  document.querySelectorAll('.day-tab').forEach(b => b.classList.toggle('active', b.dataset.day === 'shop'));
+  document.getElementById('meal-day-content').innerHTML = `
+    <div class="card">
+      <div style="font-weight:600;font-size:15px;margin-bottom:14px">🛒 Weekly Shopping List</div>
+      <ul style="list-style:none;padding:0;margin:0">
+        ${(weeklyIngredients||[]).map(i=>`
+          <li style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--text-1)">
+            <span onclick="this.style.textDecoration=this.style.textDecoration?'':'line-through';this.previousElementSibling&&(this.previousElementSibling.style.background=this.style.textDecoration?'var(--accent)':'');this.parentElement.querySelector('span:first-child').style.background=this.style.textDecoration?'var(--accent)':''"
+              style="display:inline-block;cursor:pointer;width:20px;height:20px;border:1.5px solid var(--border);border-radius:5px;flex-shrink:0"></span>
+            <span style="cursor:pointer" onclick="const box=this.previousElementSibling;const checked=this.style.textDecoration==='line-through';this.style.textDecoration=checked?'':'line-through';this.style.color=checked?'var(--text-1)':'var(--text-3)';box.style.background=checked?'':'var(--accent-2)';box.style.borderColor=checked?'var(--border)':'var(--accent-2)'">${escHtml(i)}</span>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
 }
 
 function showMealDay(dow, byDay, s) {
@@ -950,14 +975,8 @@ function showMealDay(dow, byDay, s) {
   const dayNames = ['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const totals = Object.values(dayMeals).reduce((a,m)=>({cal:a.cal+m.calories,p:a.p+m.protein,c:a.c+m.carbs,f:a.f+m.fat}),{cal:0,p:0,c:0,f:0});
 
-  // Collect all ingredients for the day
-  const allIngredients = MEAL_ORDER.flatMap(type => {
-    const m = dayMeals[type];
-    return (m && m.ingredients) ? m.ingredients : [];
-  });
-
   document.getElementById('meal-day-content').innerHTML = `
-    <div class="card" style="margin-bottom:10px">
+    <div class="card" style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div style="font-weight:600;font-size:15px">${dayNames[dow]}</div>
         <div style="font-size:13px;color:var(--text-2)">${totals.cal} kcal · ${totals.p.toFixed(0)}g P</div>
@@ -994,19 +1013,6 @@ function showMealDay(dow, byDay, s) {
         `;
       }).join('')}
     </div>
-    ${allIngredients.length ? `
-    <div class="card" style="margin-bottom:10px">
-      <div style="font-weight:600;font-size:14px;margin-bottom:12px">🛒 ${dayNames[dow]}'s Shopping List</div>
-      <ul style="list-style:none;padding:0;margin:0">
-        ${allIngredients.map(i => `
-          <li style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--text-2)">
-            <span style="width:18px;height:18px;border:1.5px solid var(--border);border-radius:4px;flex-shrink:0;display:inline-block"></span>
-            ${escHtml(i)}
-          </li>
-        `).join('')}
-      </ul>
-    </div>
-    ` : ''}
     <div style="text-align:center;font-size:12px;color:var(--text-3);margin-top:8px">
       Daily total: ${totals.cal} kcal · ${totals.p.toFixed(0)}g protein · ${totals.c.toFixed(0)}g carbs · ${totals.f.toFixed(0)}g fat
     </div>
