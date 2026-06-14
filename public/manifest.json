@@ -1,0 +1,18 @@
+{
+  "name": "Connor Workout Tracker",
+  "short_name": "Connor",
+  "description": "Personal fitness & nutrition tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F1F0E5",
+  "theme_color": "#EBD6CB",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
