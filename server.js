@@ -8,7 +8,7 @@ const app = express();
 const DB_FILE = path.join(__dirname, 'db.json');
 
 // ── Persistence ───────────────────────────────────────────
-const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, payments:[], financeSettings:{} };
+const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null };
 function readDB() {
   try { return { ...DB_DEFAULTS, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }; }
   catch { return { ...DB_DEFAULTS }; }
@@ -518,61 +518,6 @@ app.post('/api/meal-plan/regenerate', (req, res) => {
   writeDB(db);
   const plan = generateMealPlan(weekStart, req.body.calorieGoal || 2000, readDB());
   res.json(plan);
-});
-
-// ── Finance ───────────────────────────────────────────
-app.get('/api/payments', (_req, res) => {
-  res.json(readDB().payments.slice().sort((a, b) => a.date.localeCompare(b.date)));
-});
-
-app.post('/api/payments', (req, res) => {
-  const { name, amount, date, category, type, isRecurring, frequency, endDate, notes } = req.body;
-  if (!name?.trim() || !amount || !date) return res.status(400).json({ error: 'name, amount, and date are required' });
-  const db = readDB();
-  const entry = {
-    id: nextId(db.payments),
-    name: name.trim(),
-    amount: +amount,
-    date,
-    category: category || 'other',
-    type: type || 'expense',
-    isRecurring: !!isRecurring,
-    frequency: isRecurring ? (frequency || 'monthly') : null,
-    endDate: endDate || null,
-    notes: notes || '',
-    created_at: new Date().toISOString(),
-  };
-  db.payments.push(entry);
-  writeDB(db);
-  res.json(entry);
-});
-
-app.patch('/api/payments/:id', (req, res) => {
-  const db = readDB();
-  const item = db.payments.find(p => p.id === +req.params.id);
-  if (!item) return res.status(404).json({ error: 'not found' });
-  Object.assign(item, req.body);
-  writeDB(db);
-  res.json(item);
-});
-
-app.delete('/api/payments/:id', (req, res) => {
-  const db = readDB();
-  db.payments = db.payments.filter(p => p.id !== +req.params.id);
-  writeDB(db);
-  res.json({ ok: true });
-});
-
-app.get('/api/finance/settings', (_req, res) => {
-  const db = readDB();
-  res.json({ monthlyIncome: 0, currentBalance: 0, ...db.financeSettings });
-});
-
-app.post('/api/finance/settings', (req, res) => {
-  const db = readDB();
-  db.financeSettings = { ...db.financeSettings, ...req.body };
-  writeDB(db);
-  res.json(db.financeSettings);
 });
 
 // ── Stats ─────────────────────────────────────────────────
