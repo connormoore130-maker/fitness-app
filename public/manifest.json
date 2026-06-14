@@ -4,8 +4,8 @@
   "description": "Personal fitness & nutrition tracker",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F1F0E5",
-  "theme_color": "#EBD6CB",
+  "background_color": "#000000",
+  "theme_color": "#FF4D00",
   "orientation": "portrait-primary",
   "icons": [
     {
