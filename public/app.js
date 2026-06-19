@@ -154,7 +154,7 @@ function navigate(view) {
 document.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>navigate(btn.dataset.view)));
 
 function renderView(v) {
-  ({dashboard:renderDashboard,log:renderLog,weight:renderWeight,nutrition:renderNutrition,plan:renderPlan,settings:renderSettings}[v]||(() => {}))();
+  ({dashboard:renderDashboard,streak:renderStreak,weight:renderWeight,nutrition:renderNutrition,plan:renderPlan,settings:renderSettings}[v]||(() => {}))();
 }
 
 // ── Dashboard ─────────────────────────────────────────────
@@ -287,7 +287,95 @@ async function renderDashboard() {
   const recent = await api.get('/api/workouts?limit=4');
   document.getElementById('dash-workouts').innerHTML = recent.length
     ? `<div class="workout-list">${recent.map(w=>workoutCard(w,false)).join('')}</div>`
-    : `<div class="empty-state"><div class="empty-state-icon">🏋️</div><p>No workouts yet.</p><button class="btn btn-primary btn-sm" onclick="navigate('log')">Log Workout</button></div>`;
+    : `<div class="empty-state"><div class="empty-state-icon">🔥</div><p>No workouts yet.</p><button class="btn btn-primary btn-sm" onclick="navigate('streak')">Start Streak</button></div>`;
+}
+
+// ── Streak ────────────────────────────────────────────────
+async function renderStreak() {
+  const el = document.getElementById('view-streak');
+  if (!el) return;
+  el.innerHTML = '<p style="padding:20px;color:var(--text-2)">Loading…</p>';
+  const { days, streak } = await api.get('/api/streak-calendar');
+  const today = new Date().toLocaleDateString('en-CA');
+
+  const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  // Build a map date→done for quick lookup
+  const doneMap = {};
+  days.forEach(d => doneMap[d.date] = d.done);
+  // Build calendar grid: find Monday of the week containing today, go back 12 weeks
+  const todayDate = new Date(today + 'T12:00:00');
+  const todayCol = (todayDate.getDay() + 6) % 7; // Mon=0…Sun=6
+  // Start from Monday of current week
+  const weekMonday = new Date(todayDate);
+  weekMonday.setDate(todayDate.getDate() - todayCol);
+  // Build 12 weeks of rows (current week first)
+  const weeks = [];
+  for (let w = 0; w < 12; w++) {
+    const row = [];
+    for (let d = 0; d < 7; d++) {
+      const dt = new Date(weekMonday);
+      dt.setDate(weekMonday.getDate() - w * 7 + d);
+      const ds = dt.toLocaleDateString('en-CA');
+      row.push({ date: ds, done: !!doneMap[ds] });
+    }
+    weeks.push(row);
+  }
+
+  el.innerHTML = `
+    <div class="page-header"><h1>Streak</h1></div>
+    <div style="padding:0 16px 24px">
+
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+        <div style="background:var(--accent);color:#fff;border-radius:16px;padding:16px 24px;text-align:center;min-width:90px">
+          <div style="font-size:36px;font-weight:800;line-height:1">${streak}</div>
+          <div style="font-size:12px;margin-top:4px;opacity:.85">day streak 🔥</div>
+        </div>
+        <button class="btn btn-primary" onclick="markToday()" id="mark-today-btn" style="flex:1;padding:14px">
+          ${days[0]?.done ? '✓ Done today' : '+ Mark today done'}
+        </button>
+      </div>
+
+      <div style="margin-bottom:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center">
+        ${dayLabels.map(d=>`<div style="font-size:10px;font-weight:600;color:var(--text-3);padding:2px 0">${d}</div>`).join('')}
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px" id="streak-grid">
+        ${weeks.map(week => `
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+            ${week.map(day => {
+              const isToday = day.date === today;
+              const isFuture = day.date > today;
+              const done = day.done;
+              return `<div onclick="toggleDay('${day.date}')" data-date="${day.date}"
+                style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:${isFuture?'default':'pointer'};
+                background:${done?'#FF4D00':isFuture?'transparent':'var(--surface)'};
+                border:2px solid ${isToday?'#FF4D00':done?'#FF4D00':'var(--border)'};
+                color:${done?'#fff':'var(--text-2)'};
+                opacity:${isFuture?0.15:1}">
+                ${done ? '✓' : ''}
+              </div>`;
+            }).join('')}
+          </div>`).join('')}
+      </div>
+
+      <div style="margin-top:20px;display:flex;gap:16px;font-size:12px;color:var(--text-3)">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:var(--accent);display:inline-block"></span> Done</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:var(--card-bg);border:1.5px solid var(--border);display:inline-block"></span> Missed</span>
+      </div>
+    </div>
+  `;
+}
+
+async function markToday() {
+  const today = new Date().toLocaleDateString('en-CA');
+  await api.post('/api/streak-calendar/toggle', { date: today });
+  renderStreak();
+}
+
+async function toggleDay(date, el) {
+  if (date > new Date().toLocaleDateString('en-CA')) return;
+  await api.post('/api/streak-calendar/toggle', { date });
+  renderStreak();
 }
 
 // ── Log Workout ───────────────────────────────────────────

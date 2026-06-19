@@ -243,52 +243,53 @@ function generateAdaptivePlan(weekStart, db) {
 }
 
 // ── Meal plan library ─────────────────────────────────────
+// must = fresh/perishable items only. nice = pantry staples to check you have.
 const MEALS = {
   breakfast: [
-    { name:'Porridge with Berries & Honey',       calories:380, protein:14, carbs:60, fat:8,  easy:true,  must:['Rolled oats','Semi-skimmed milk','Blueberries'],                          nice:['Honey'],             notes:'Mix oats and milk, microwave 3 mins, top with berries and honey.' },
-    { name:'Scrambled Eggs on Toast',              calories:360, protein:24, carbs:36, fat:14, easy:true,  must:['Eggs','Wholemeal bread'],                                                  nice:['Butter'],            notes:'Whisk eggs, cook slowly in buttered pan on low heat, serve on toast.' },
-    { name:'Greek Yogurt, Granola & Banana',       calories:390, protein:20, carbs:55, fat:8,  easy:true,  must:['Low-fat Greek yogurt','Granola','Banana'],                                 nice:['Honey'],             notes:'Layer yogurt, granola and sliced banana. Drizzle honey.' },
-    { name:'Protein Porridge with Peanut Butter',  calories:460, protein:32, carbs:54, fat:14, easy:true,  must:['Rolled oats','Vanilla protein powder','Peanut butter','Banana'],           nice:['Milk'],              notes:'Cook oats in milk, stir in protein powder off heat, top with peanut butter and banana.' },
-    { name:'Spinach & Mushroom Omelette',          calories:320, protein:28, carbs:6,  fat:18, easy:true,  must:['Eggs','Spinach','Chestnut mushrooms'],                                     nice:['Olive oil'],         notes:'Fry mushrooms, add spinach until wilted, pour in whisked eggs, fold when just set.' },
-    { name:'Overnight Oats with Chia & Berries',   calories:400, protein:18, carbs:56, fat:10, easy:true,  must:['Rolled oats','Oat milk','Chia seeds','Mixed berries'],                     nice:[],                   notes:'Mix oats, oat milk and chia seeds in a jar. Refrigerate overnight. Top with berries.' },
-    { name:'Smoked Salmon & Eggs on Toast',        calories:420, protein:36, carbs:20, fat:20, easy:true,  must:['Eggs','Smoked salmon','Wholemeal bread'],                                  nice:['Chives'],            notes:'Scramble eggs, serve on toast with smoked salmon.' },
+    { name:'Porridge with Berries & Honey',      calories:380, protein:14, carbs:60, fat:8,  easy:true,  must:['Blueberries','Milk'],                    nice:['Rolled oats','Honey'],           notes:'Mix oats and milk, microwave 3 mins, top with berries and honey.' },
+    { name:'Scrambled Eggs on Toast',             calories:360, protein:24, carbs:36, fat:14, easy:true,  must:['Eggs','Wholemeal bread'],                nice:['Butter'],                        notes:'Whisk eggs, cook slowly in buttered pan on low heat, serve on toast.' },
+    { name:'Greek Yogurt, Granola & Banana',      calories:390, protein:20, carbs:55, fat:8,  easy:true,  must:['Greek yogurt','Banana'],                 nice:['Granola','Honey'],               notes:'Layer yogurt, granola and sliced banana. Drizzle honey.' },
+    { name:'Protein Porridge with Peanut Butter', calories:460, protein:32, carbs:54, fat:14, easy:true,  must:['Banana','Milk'],                         nice:['Rolled oats','Protein powder','Peanut butter'], notes:'Cook oats in milk, stir in protein powder, top with peanut butter and banana.' },
+    { name:'Spinach & Mushroom Omelette',         calories:320, protein:28, carbs:6,  fat:18, easy:true,  must:['Eggs','Spinach','Mushrooms'],            nice:['Olive oil'],                     notes:'Fry mushrooms, add spinach, pour in whisked eggs, fold when just set.' },
+    { name:'Overnight Oats with Chia & Berries',  calories:400, protein:18, carbs:56, fat:10, easy:true,  must:['Mixed berries','Oat milk'],              nice:['Rolled oats','Chia seeds'],      notes:'Mix oats, oat milk and chia seeds in a jar overnight. Top with berries.' },
+    { name:'Smoked Salmon & Eggs on Toast',       calories:420, protein:36, carbs:20, fat:20, easy:true,  must:['Eggs','Smoked salmon','Wholemeal bread'],nice:[],                                notes:'Scramble eggs, serve on toast with smoked salmon.' },
   ],
   snack: [
-    { name:'Protein Shake & Banana',    calories:280, protein:28, carbs:30, fat:3,  easy:true, must:['Whey protein powder','Banana'],          nice:['Semi-skimmed milk'],  notes:'Shake with milk.' },
-    { name:'Oatcakes & Peanut Butter',  calories:230, protein:7,  carbs:28, fat:10, easy:true, must:['Oatcakes','Peanut butter'],              nice:[],                     notes:'Spread peanut butter on oatcakes.' },
-    { name:'Apple & Cottage Cheese',    calories:185, protein:18, carbs:20, fat:3,  easy:true, must:['Apple','Low-fat cottage cheese'],        nice:[],                     notes:'Slice apple, serve with cottage cheese.' },
-    { name:'Greek Yogurt & Honey',      calories:190, protein:16, carbs:22, fat:4,  easy:true, must:['Low-fat Greek yogurt'],                  nice:['Honey','Mixed seeds'], notes:'Top yogurt with honey and seeds.' },
-    { name:'Mixed Nuts & Dried Fruit',  calories:210, protein:6,  carbs:20, fat:13, easy:true, must:['Mixed unsalted nuts','Dried apricots'],  nice:[],                     notes:'Combine and eat.' },
-    { name:'Tuna & Oatcakes',           calories:200, protein:24, carbs:16, fat:4,  easy:true, must:['Tinned tuna','Oatcakes'],                nice:['Lemon'],              notes:'Drain tuna, serve on oatcakes with a squeeze of lemon.' },
-    { name:'Hard-Boiled Eggs',          calories:155, protein:13, carbs:1,  fat:10, easy:true, must:['Eggs'],                                  nice:[],                     notes:'Boil eggs 8 mins, cool, peel and season.' },
-    { name:'Rice Cakes & Cream Cheese', calories:175, protein:6,  carbs:26, fat:5,  easy:true, must:['Rice cakes','Low-fat cream cheese','Cucumber'], nice:[],             notes:'Spread cream cheese, top with cucumber.' },
+    { name:'Protein Shake & Banana',    calories:280, protein:28, carbs:30, fat:3,  easy:true, must:['Banana'],                    nice:['Protein powder','Milk'],  notes:'Shake protein powder with milk and banana.' },
+    { name:'Oatcakes & Peanut Butter',  calories:230, protein:7,  carbs:28, fat:10, easy:true, must:[],                            nice:['Oatcakes','Peanut butter'],notes:'Spread peanut butter on oatcakes.' },
+    { name:'Apple & Cottage Cheese',    calories:185, protein:18, carbs:20, fat:3,  easy:true, must:['Apple','Cottage cheese'],    nice:[],                         notes:'Slice apple, serve with cottage cheese.' },
+    { name:'Greek Yogurt & Honey',      calories:190, protein:16, carbs:22, fat:4,  easy:true, must:['Greek yogurt'],              nice:['Honey'],                  notes:'Top yogurt with honey.' },
+    { name:'Mixed Nuts & Dried Fruit',  calories:210, protein:6,  carbs:20, fat:13, easy:true, must:[],                            nice:['Mixed nuts','Dried fruit'],notes:'Combine and eat.' },
+    { name:'Tuna & Oatcakes',           calories:200, protein:24, carbs:16, fat:4,  easy:true, must:['Tinned tuna'],               nice:['Oatcakes'],               notes:'Drain tuna, serve on oatcakes.' },
+    { name:'Hard-Boiled Eggs',          calories:155, protein:13, carbs:1,  fat:10, easy:true, must:['Eggs'],                      nice:[],                         notes:'Boil eggs 8 mins, cool and peel.' },
+    { name:'Rice Cakes & Cream Cheese', calories:175, protein:6,  carbs:26, fat:5,  easy:true, must:['Cream cheese','Cucumber'],   nice:['Rice cakes'],             notes:'Spread cream cheese, top with cucumber.' },
   ],
   lunch: [
-    { name:'Tuna Mayo Jacket Potato',    calories:520, protein:38, carbs:62, fat:10, easy:true,  must:['Baking potato','Tinned tuna','Salad leaves'],          nice:['Light mayo'],          notes:'Microwave potato 8–10 mins, fill with tuna mayo, serve with salad.' },
-    { name:'Chicken & Sweetcorn Wrap',   calories:490, protein:40, carbs:48, fat:12, easy:true,  must:['Wholemeal wrap','Cooked chicken breast','Sweetcorn'],   nice:['Light mayo','Lettuce'], notes:'Layer chicken, sweetcorn and salad in wrap and roll up.' },
-    { name:'Prawn & Avocado Roll',       calories:460, protein:28, carbs:44, fat:16, easy:true,  must:['Granary roll','Cooked king prawns','Avocado'],           nice:['Lemon','Salad leaves'], notes:'Mash avocado, spread on roll, top with prawns.' },
-    { name:'Chicken & Rice Salad',       calories:480, protein:42, carbs:50, fat:10, easy:true,  must:['Chicken breast','Basmati rice','Cucumber','Tomatoes'],   nice:['Light dressing'],      notes:'Cook rice, cool, toss with sliced chicken and veg.' },
-    { name:'Ham & Cheese Toastie',       calories:450, protein:30, carbs:42, fat:16, easy:true,  must:['Wholemeal bread','Lean ham','Reduced-fat cheddar'],      nice:['Salad'],               notes:'Layer ham and cheese, toast until golden.' },
-    { name:'Smoked Salmon Pasta Salad',  calories:500, protein:34, carbs:54, fat:14, easy:false, must:['Wholemeal pasta','Smoked salmon','Cucumber'],            nice:['Capers','Dill','Lemon'], notes:'Cook pasta, cool, toss with salmon, cucumber and lemon.',
-      recipe:['Cook pasta per packet. Drain and rinse cold.','Tear salmon, dice cucumber.','Toss together with lemon juice and olive oil.','Season and scatter dill.'] },
-    { name:'Lentil & Vegetable Soup',    calories:380, protein:22, carbs:52, fat:6,  easy:true,  must:['Tinned green lentils','Carrot','Onion','Vegetable stock','Crusty bread'], nice:['Cumin'], notes:'Fry veg, add lentils and stock, simmer 15 mins.' },
+    { name:'Tuna Mayo Jacket Potato',   calories:520, protein:38, carbs:62, fat:10, easy:true,  must:['Baking potato','Tinned tuna','Salad leaves'],  nice:['Light mayo'],   notes:'Microwave potato 8–10 mins, fill with tuna mayo, serve with salad.' },
+    { name:'Chicken & Sweetcorn Wrap',  calories:490, protein:40, carbs:48, fat:12, easy:true,  must:['Chicken breast','Wholemeal wraps'],             nice:['Sweetcorn','Light mayo'], notes:'Slice chicken, layer in wrap with sweetcorn and roll up.' },
+    { name:'Prawn & Avocado Roll',      calories:460, protein:28, carbs:44, fat:16, easy:true,  must:['Cooked prawns','Avocado','Bread roll'],         nice:[],               notes:'Mash avocado, spread on roll, top with prawns.' },
+    { name:'Chicken & Rice Salad',      calories:480, protein:42, carbs:50, fat:10, easy:true,  must:['Chicken breast','Cucumber','Tomatoes'],         nice:['Basmati rice','Light dressing'], notes:'Cook rice, cool, toss with chicken and veg.' },
+    { name:'Ham & Cheese Toastie',      calories:450, protein:30, carbs:42, fat:16, easy:true,  must:['Lean ham','Cheddar','Wholemeal bread'],         nice:[],               notes:'Layer ham and cheese, toast until golden.' },
+    { name:'Smoked Salmon Pasta Salad', calories:500, protein:34, carbs:54, fat:14, easy:false, must:['Smoked salmon','Cucumber'],                     nice:['Wholemeal pasta','Capers','Lemon'], notes:'Cook pasta, cool, toss with salmon and cucumber.',
+      recipe:['Cook pasta, drain and rinse cold.','Tear salmon, dice cucumber.','Toss with lemon juice and olive oil.','Season and serve.'] },
+    { name:'Lentil & Vegetable Soup',   calories:380, protein:22, carbs:52, fat:6,  easy:true,  must:['Carrot','Onion','Crusty bread'],                nice:['Tinned lentils','Vegetable stock'], notes:'Fry veg, add lentils and stock, simmer 15 mins.' },
   ],
   dinner: [
-    { name:'Chicken Traybake with Veg',              calories:520, protein:46, carbs:38, fat:14, easy:true,  must:['Chicken thighs','Potatoes','Red pepper','Courgette','Red onion'],      nice:['Smoked paprika','Olive oil'],   notes:'Toss everything with oil and paprika, roast at 200°C for 40 mins.' },
-    { name:'One-Pot Chicken & Rice',                 calories:510, protein:46, carbs:52, fat:10, easy:true,  must:['Chicken thighs','Basmati rice','Frozen peas','Chicken stock'],         nice:['Garlic','Rosemary'],           notes:'Brown chicken, add rice and stock, simmer covered 20 mins, stir in peas.' },
-    { name:'Baked Salmon with New Potatoes & Peas',  calories:540, protein:52, carbs:32, fat:22, easy:true,  must:['Salmon fillet','New potatoes','Frozen peas'],                           nice:['Butter','Lemon','Fresh mint'], notes:'Bake salmon 12 mins, boil potatoes, crush peas with butter and mint.' },
-    { name:'Turkey Mince Bolognese',                 calories:520, protein:50, carbs:54, fat:10, easy:true,  must:['Turkey mince','Wholemeal spaghetti','Tinned tomatoes','Courgette'],    nice:['Garlic','Parmesan'],           notes:'Brown mince, add tomatoes and courgette, simmer 20 mins, serve with pasta.' },
-    { name:'Sausage & Veg Traybake',                 calories:520, protein:28, carbs:46, fat:22, easy:true,  must:['Lean pork sausages','New potatoes','Red pepper','Red onion'],          nice:['Cherry tomatoes','Rosemary'],  notes:'Roast everything on one tray at 200°C for 35–40 mins.' },
-    { name:'Butter Bean & Tomato Stew',              calories:440, protein:20, carbs:60, fat:10, easy:true,  must:['Tinned butter beans','Tinned tomatoes','Spinach','Crusty bread'],      nice:['Onion','Garlic','Smoked paprika'], notes:'Fry onion, add tomatoes and beans, simmer 15 mins, stir in spinach.' },
-    { name:'Healthy Chicken Tikka Masala',           calories:540, protein:50, carbs:44, fat:14, easy:false, must:['Chicken breast','Tikka paste','Tinned tomatoes','Basmati rice'],       nice:['Low-fat yogurt','Coriander'],  notes:'Brown chicken with tikka paste, add tomatoes, simmer 15 mins, serve with rice.',
-      recipe:['Fry diced onion 5 mins.','Add tikka paste, cook 1 min.','Add chicken and brown 3–4 mins.','Pour in tomatoes, simmer 15 mins.','Stir in yogurt off heat.','Serve with rice and coriander.'] },
-    { name:'Easy Prawn & Tomato Spaghetti',          calories:520, protein:36, carbs:66, fat:10, easy:false, must:['Raw king prawns','Wholemeal spaghetti','Tinned tomatoes'],              nice:['Garlic','Chilli flakes','Parsley'], notes:'Cook pasta, fry prawns with garlic, add tomatoes, toss and serve.',
-      recipe:['Cook spaghetti per packet.','Fry garlic and chilli 1 min.','Add prawns, cook until pink.','Pour in tomatoes, simmer 5 mins.','Toss with drained pasta and parsley.'] },
-    { name:'Smoked Haddock with New Potatoes & Peas',calories:470, protein:46, carbs:44, fat:10, easy:true,  must:['Smoked haddock fillet','New potatoes','Frozen peas'],                  nice:['Butter','Lemon','Parsley'],    notes:'Boil potatoes, poach haddock 6–8 mins, crush peas with butter.' },
-    { name:'Sweet Potato & Lentil Dhal',             calories:480, protein:22, carbs:70, fat:10, easy:false, must:['Sweet potato','Red lentils','Tinned coconut milk','Spinach','Naan'],    nice:['Cumin','Turmeric','Garlic'],   notes:'Simmer lentils, sweet potato and coconut milk 20–25 mins, stir in spinach.',
-      recipe:['Dice sweet potato into 2cm cubes.','Fry garlic with cumin and turmeric 1 min.','Add lentils, coconut milk and sweet potato.','Simmer 20–25 mins until soft.','Stir in spinach. Serve with naan.'] },
-    { name:'Chicken & Chorizo One-Pot',              calories:560, protein:48, carbs:50, fat:16, easy:false, must:['Chicken thighs','Chorizo','Basmati rice','Tinned tomatoes','Chicken stock','Red pepper'], nice:['Smoked paprika'], notes:'Fry chorizo, brown chicken, add everything and simmer covered 20 mins.',
-      recipe:['Fry chorizo until oils release. Set aside.','Brown chicken in same pan.','Add onion and pepper, soften.','Add paprika, rice, tomatoes, stock and chorizo.','Nestle chicken back in, cover and simmer 20 mins.'] },
+    { name:'Chicken Traybake with Veg',             calories:520, protein:46, carbs:38, fat:14, easy:true,  must:['Chicken thighs','Potatoes','Courgette','Red pepper'],  nice:['Smoked paprika','Olive oil'],   notes:'Toss with oil and paprika, roast at 200°C for 40 mins.' },
+    { name:'One-Pot Chicken & Rice',                calories:510, protein:46, carbs:52, fat:10, easy:true,  must:['Chicken thighs','Frozen peas'],                        nice:['Basmati rice','Chicken stock'], notes:'Brown chicken, add rice and stock, simmer covered 20 mins, stir in peas.' },
+    { name:'Baked Salmon with New Potatoes & Peas', calories:540, protein:52, carbs:32, fat:22, easy:true,  must:['Salmon fillet','New potatoes','Frozen peas'],          nice:['Butter','Lemon'],              notes:'Bake salmon 12 mins, boil potatoes, crush peas with butter.' },
+    { name:'Turkey Mince Bolognese',                calories:520, protein:50, carbs:54, fat:10, easy:true,  must:['Turkey mince','Courgette'],                            nice:['Wholemeal spaghetti','Tinned tomatoes'], notes:'Brown mince, add tomatoes, simmer 20 mins, serve with pasta.' },
+    { name:'Sausage & Veg Traybake',                calories:520, protein:28, carbs:46, fat:22, easy:true,  must:['Lean pork sausages','New potatoes','Red pepper'],      nice:[],                               notes:'Roast everything on one tray at 200°C for 35–40 mins.' },
+    { name:'Butter Bean & Tomato Stew',             calories:440, protein:20, carbs:60, fat:10, easy:true,  must:['Spinach','Crusty bread'],                              nice:['Tinned butter beans','Tinned tomatoes'], notes:'Fry onion, add tomatoes and beans, simmer 15 mins, stir in spinach.' },
+    { name:'Healthy Chicken Tikka Masala',          calories:540, protein:50, carbs:44, fat:14, easy:false, must:['Chicken breast'],                                      nice:['Tikka paste','Tinned tomatoes','Basmati rice','Yogurt'], notes:'Brown chicken with tikka paste, add tomatoes, simmer 15 mins, serve with rice.',
+      recipe:['Fry onion 5 mins.','Add tikka paste, cook 1 min.','Add chicken, brown 3–4 mins.','Add tomatoes, simmer 15 mins.','Stir in yogurt off heat. Serve with rice.'] },
+    { name:'Easy Prawn & Tomato Spaghetti',         calories:520, protein:36, carbs:66, fat:10, easy:false, must:['Raw king prawns'],                                     nice:['Wholemeal spaghetti','Tinned tomatoes'], notes:'Cook pasta, fry prawns with garlic, add tomatoes, toss and serve.',
+      recipe:['Cook spaghetti per packet.','Fry garlic and chilli 1 min.','Add prawns, cook until pink.','Add tomatoes, simmer 5 mins.','Toss with pasta and serve.'] },
+    { name:'Smoked Haddock & New Potatoes',         calories:470, protein:46, carbs:44, fat:10, easy:true,  must:['Smoked haddock','New potatoes','Frozen peas'],         nice:['Butter','Lemon'],              notes:'Boil potatoes, poach haddock 6–8 mins, crush peas with butter.' },
+    { name:'Sweet Potato & Lentil Dhal',            calories:480, protein:22, carbs:70, fat:10, easy:false, must:['Sweet potato','Spinach','Naan bread'],                 nice:['Red lentils','Tinned coconut milk','Cumin','Turmeric'], notes:'Simmer lentils, sweet potato and coconut milk 20–25 mins, stir in spinach.',
+      recipe:['Dice sweet potato.','Fry garlic with cumin and turmeric 1 min.','Add lentils, coconut milk and sweet potato.','Simmer 20–25 mins until soft.','Stir in spinach. Serve with naan.'] },
+    { name:'Chicken & Chorizo One-Pot',             calories:560, protein:48, carbs:50, fat:16, easy:false, must:['Chicken thighs','Chorizo','Red pepper'],               nice:['Basmati rice','Tinned tomatoes','Chicken stock'], notes:'Fry chorizo, brown chicken, add everything and simmer covered 20 mins.',
+      recipe:['Fry chorizo until oils release.','Brown chicken in same pan.','Add pepper, rice, tomatoes and stock.','Cover and simmer 20 mins.'] },
   ],
 };
 
@@ -587,6 +588,46 @@ app.post('/api/meal-plan/regenerate', (req, res) => {
   writeDB(db);
   const plan = generateMealPlan(weekStart, req.body.calorieGoal || 2000, readDB());
   res.json(plan);
+});
+
+// ── Streak calendar ───────────────────────────────────────
+app.get('/api/streak-calendar', (_req, res) => {
+  const db = readDB();
+  const doneDates = new Set(db.workouts.map(w => w.date));
+  // Return last 84 days (12 weeks)
+  const days = [];
+  const d = new Date();
+  for (let i = 0; i < 84; i++) {
+    const ds = d.toLocaleDateString('en-CA');
+    days.push({ date: ds, done: doneDates.has(ds) });
+    d.setDate(d.getDate() - 1);
+  }
+  // streak count
+  let streak = 0;
+  const s = new Date();
+  while (doneDates.has(s.toLocaleDateString('en-CA'))) {
+    streak++; s.setDate(s.getDate() - 1);
+  }
+  res.json({ days, streak });
+});
+
+app.post('/api/streak-calendar/toggle', (req, res) => {
+  const { date } = req.body;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  const db = readDB();
+  const existing = db.workouts.findIndex(w => w.date === date && w.raw_text === '✓');
+  if (existing >= 0) {
+    // Only remove the marker entry, not real logged workouts
+    const real = db.workouts.filter(w => w.date === date && w.raw_text !== '✓');
+    if (real.length === 0) db.workouts.splice(existing, 1);
+  } else {
+    // Only add a marker if no workout already logged for this date
+    if (!db.workouts.some(w => w.date === date)) {
+      db.workouts.push({ id: nextId(db.workouts), date, raw_text: '✓', activity: 'Exercise', duration_mins: 0, created_at: new Date().toISOString() });
+    }
+  }
+  writeDB(db);
+  res.json({ ok: true });
 });
 
 // ── Stats ─────────────────────────────────────────────────
