@@ -291,37 +291,31 @@ async function renderDashboard() {
 }
 
 // ── Streak ────────────────────────────────────────────────
+const ACTIVITY_ICONS = { weights:'🏋️', running:'👟', boxing:'🥊', cycling:'🚴', yoga:'🧘', other:'✓' };
+
 async function renderStreak() {
   const el = document.getElementById('view-streak');
   if (!el) return;
   el.innerHTML = '<p style="padding:20px;color:var(--text-2)">Loading…</p>';
-  const [{ days, streak }, programs] = await Promise.all([
-    api.get('/api/streak-calendar'),
-    api.get('/api/programs'),
-  ]);
+  const { days, streak } = await api.get('/api/streak-calendar');
   const today = new Date().toLocaleDateString('en-CA');
-  const todayDone = days[0]?.done;
 
-  // Determine today's plan (A/B alternating from Monday, skip Sundays as rest)
-  const dayOfWeek = new Date().getDay(); // 0=Sun
-  const planNames = { A: 'Plan A', B: 'Plan B' };
-  const isRest = dayOfWeek === 0;
-  // Alternate A/B: Mon/Wed/Fri = A, Tue/Thu/Sat = B
-  const planId = [null,'A','B','A','B','A','B',null][dayOfWeek];
-  const todayPlan = planId ? programs.find(p => p.id === planId) : null;
-  const doneThisWeek = days.slice(0, 7).filter(d => d.done).length;
+  // Build maps
+  const typeMap = {};
+  days.forEach(d => { if (d.type) typeMap[d.date] = d.type; });
+
+  // Week summary (last 7 days)
+  const thisWeek = days.filter(d => d.date <= today).slice(0, 7);
+  const weekDone = thisWeek.filter(d => d.done).length;
+  const typeCounts = {};
+  thisWeek.forEach(d => { if (d.type) typeCounts[d.type] = (typeCounts[d.type]||0)+1; });
+  const weekSummary = Object.entries(typeCounts).map(([t,n])=>`${ACTIVITY_ICONS[t]}×${n}`).join(' ');
 
   const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  // Build a map date→done for quick lookup
-  const doneMap = {};
-  days.forEach(d => doneMap[d.date] = d.done);
-  // Build calendar grid: find Monday of the week containing today, go back 12 weeks
   const todayDate = new Date(today + 'T12:00:00');
-  const todayCol = (todayDate.getDay() + 6) % 7; // Mon=0…Sun=6
-  // Start from Monday of current week
+  const todayCol = (todayDate.getDay() + 6) % 7;
   const weekMonday = new Date(todayDate);
   weekMonday.setDate(todayDate.getDate() - todayCol);
-  // Build 12 weeks of rows (current week first)
   const weeks = [];
   for (let w = 0; w < 12; w++) {
     const row = [];
@@ -329,7 +323,7 @@ async function renderStreak() {
       const dt = new Date(weekMonday);
       dt.setDate(weekMonday.getDate() - w * 7 + d);
       const ds = dt.toLocaleDateString('en-CA');
-      row.push({ date: ds, done: !!doneMap[ds] });
+      row.push({ date: ds, done: !!typeMap[ds], type: typeMap[ds] || null });
     }
     weeks.push(row);
   }
@@ -338,34 +332,18 @@ async function renderStreak() {
     <div class="page-header"><h1>Streak</h1></div>
     <div style="padding:0 16px 24px">
 
-      ${todayPlan ? `
-      <div class="card" style="margin-bottom:16px;border-left:4px solid #FF4D00">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#FF4D00;margin-bottom:6px">TODAY · ${todayPlan.name.toUpperCase()}</div>
-        <div style="font-size:13px;color:var(--text-2);margin-bottom:14px;line-height:1.5">
-          ${todayPlan.exercises.map(e=>`${e.name} <span style="color:var(--text-3)">${e.sets}×${e.reps}</span>`).join(' &nbsp;·&nbsp; ')}
-        </div>
-        <button class="btn btn-primary" onclick="markToday()" style="width:100%;padding:13px;font-size:15px">
-          ${todayDone ? '✓ Logged — great work!' : '+ Log today done'}
-        </button>
-      </div>
-      ` : `
-      <div class="card" style="margin-bottom:16px;text-align:center;padding:20px">
-        <div style="font-size:24px;margin-bottom:6px">😴</div>
-        <div style="font-weight:600">Rest day</div>
-        <div style="font-size:13px;color:var(--text-2);margin-top:4px">Recover well. Back at it tomorrow.</div>
-      </div>
-      `}
-
       <div style="display:flex;gap:12px;margin-bottom:24px">
         <div style="flex:1;background:var(--surface);border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border)">
           <div style="font-size:28px;font-weight:800;color:#FF4D00">${streak}</div>
           <div style="font-size:11px;color:var(--text-3);margin-top:2px">day streak 🔥</div>
         </div>
         <div style="flex:1;background:var(--surface);border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border)">
-          <div style="font-size:28px;font-weight:800">${doneThisWeek}</div>
+          <div style="font-size:28px;font-weight:800">${weekDone}</div>
           <div style="font-size:11px;color:var(--text-3);margin-top:2px">this week</div>
         </div>
       </div>
+
+      ${weekSummary ? `<div style="background:var(--surface);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:15px;border:1.5px solid var(--border)">${weekSummary}</div>` : ''}
 
       <div style="margin-bottom:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center">
         ${dayLabels.map(d=>`<div style="font-size:10px;font-weight:600;color:var(--text-3);padding:2px 0">${d}</div>`).join('')}
@@ -377,36 +355,66 @@ async function renderStreak() {
             ${week.map(day => {
               const isToday = day.date === today;
               const isFuture = day.date > today;
-              const done = day.done;
-              return `<div onclick="toggleDay('${day.date}')" data-date="${day.date}"
-                style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:${isFuture?'default':'pointer'};
-                background:${done?'#FF4D00':isFuture?'transparent':'var(--surface)'};
-                border:2px solid ${isToday?'#FF4D00':done?'#FF4D00':'var(--border)'};
-                color:${done?'#fff':'var(--text-2)'};
-                opacity:${isFuture?0.15:1}">
-                ${done ? '✓' : ''}
+              const icon = day.type ? ACTIVITY_ICONS[day.type] : '';
+              return `<div onclick="openActivityPicker('${day.date}')" data-date="${day.date}"
+                style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:${isFuture?'default':'pointer'};
+                background:${day.done?'#FF4D00':isFuture?'transparent':'var(--surface)'};
+                border:2px solid ${isToday?'#FF4D00':day.done?'#FF4D00':'var(--border)'};
+                opacity:${isFuture?0.15:1};user-select:none">
+                ${icon}
               </div>`;
             }).join('')}
           </div>`).join('')}
       </div>
 
-      <div style="margin-top:20px;display:flex;gap:16px;font-size:12px;color:var(--text-3)">
-        <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:var(--accent);display:inline-block"></span> Done</span>
-        <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:var(--card-bg);border:1.5px solid var(--border);display:inline-block"></span> Missed</span>
+      <div style="margin-top:20px;font-size:12px;color:var(--text-3);text-align:center">Tap any day to log your activity</div>
+    </div>
+
+    <!-- Activity picker overlay -->
+    <div id="activity-picker-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5)" onclick="closeActivityPicker()"></div>
+    <div id="activity-picker" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:201;background:var(--card-bg);border-radius:20px 20px 0 0;padding:20px 20px 40px;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.32,0.72,0,1)">
+      <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px"></div>
+      <div id="activity-picker-date" style="font-size:12px;color:var(--text-3);text-align:center;margin-bottom:16px"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+        ${[['weights','🏋️','Weights'],['running','👟','Running'],['boxing','🥊','Boxing'],['cycling','🚴','Cycling'],['yoga','🧘','Yoga'],['other','✓','Other']].map(([t,icon,label])=>`
+          <button onclick="setActivity('${t}')" style="background:var(--surface);border:2px solid var(--border);border-radius:14px;padding:16px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.15s ease-out" onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform=''">
+            <span style="font-size:28px">${icon}</span>
+            <span style="font-size:11px;font-weight:600;color:var(--text-2)">${label}</span>
+          </button>
+        `).join('')}
       </div>
+      <button onclick="setActivity(null)" style="width:100%;padding:14px;background:transparent;border:1.5px solid var(--border);border-radius:12px;color:var(--text-3);font-size:14px;cursor:pointer">Clear day</button>
     </div>
   `;
 }
 
-async function markToday() {
-  const today = new Date().toLocaleDateString('en-CA');
-  await api.post('/api/streak-calendar/toggle', { date: today });
-  renderStreak();
-}
-
-async function toggleDay(date, el) {
+let _pickerDate = null;
+function openActivityPicker(date) {
   if (date > new Date().toLocaleDateString('en-CA')) return;
-  await api.post('/api/streak-calendar/toggle', { date });
+  _pickerDate = date;
+  const overlay = document.getElementById('activity-picker-overlay');
+  const picker = document.getElementById('activity-picker');
+  const label = document.getElementById('activity-picker-date');
+  const d = new Date(date + 'T12:00:00');
+  label.textContent = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+  overlay.style.display = 'block';
+  picker.style.display = 'block';
+  requestAnimationFrame(() => { picker.style.transform = 'translateY(0)'; });
+}
+function closeActivityPicker() {
+  const picker = document.getElementById('activity-picker');
+  const overlay = document.getElementById('activity-picker-overlay');
+  if (!picker) return;
+  picker.style.transform = 'translateY(100%)';
+  setTimeout(() => {
+    picker.style.display = 'none';
+    overlay.style.display = 'none';
+  }, 300);
+}
+async function setActivity(type) {
+  if (!_pickerDate) return;
+  closeActivityPicker();
+  await api.post('/api/streak-calendar/set', { date: _pickerDate, type });
   renderStreak();
 }
 

@@ -626,41 +626,43 @@ app.post('/api/meal-plan/regenerate', (req, res) => {
   res.json(plan);
 });
 
+const ACTIVITY_TYPES = { weights: '🏋️', running: '👟', boxing: '🥊', cycling: '🚴', yoga: '🧘', other: '✓' };
+
 // ── Streak calendar ───────────────────────────────────────
 app.get('/api/streak-calendar', (_req, res) => {
   const db = readDB();
-  const doneDates = new Set(db.workouts.map(w => w.date));
-  // Return last 84 days (12 weeks)
+  // Build a map of date → activity type
+  const dateMap = {};
+  for (const w of db.workouts) {
+    if (!dateMap[w.date]) dateMap[w.date] = w.activity_type || (w.raw_text === '✓' ? 'other' : 'weights');
+  }
   const days = [];
   const d = new Date();
   for (let i = 0; i < 84; i++) {
     const ds = d.toLocaleDateString('en-CA');
-    days.push({ date: ds, done: doneDates.has(ds) });
+    days.push({ date: ds, done: !!dateMap[ds], type: dateMap[ds] || null });
     d.setDate(d.getDate() - 1);
   }
-  // streak count
   let streak = 0;
   const s = new Date();
-  while (doneDates.has(s.toLocaleDateString('en-CA'))) {
+  while (dateMap[s.toLocaleDateString('en-CA')]) {
     streak++; s.setDate(s.getDate() - 1);
   }
   res.json({ days, streak });
 });
 
-app.post('/api/streak-calendar/toggle', (req, res) => {
-  const { date } = req.body;
+app.post('/api/streak-calendar/set', (req, res) => {
+  const { date, type } = req.body; // type = 'weights'|'running'|'boxing'|'cycling'|'yoga'|'other'|null
   if (!date) return res.status(400).json({ error: 'date required' });
   const db = readDB();
-  const existing = db.workouts.findIndex(w => w.date === date && w.raw_text === '✓');
-  if (existing >= 0) {
-    // Only remove the marker entry, not real logged workouts
-    const real = db.workouts.filter(w => w.date === date && w.raw_text !== '✓');
-    if (real.length === 0) db.workouts.splice(existing, 1);
-  } else {
-    // Only add a marker if no workout already logged for this date
-    if (!db.workouts.some(w => w.date === date)) {
-      db.workouts.push({ id: nextId(db.workouts), date, raw_text: '✓', activity: 'Exercise', duration_mins: 0, created_at: new Date().toISOString() });
-    }
+  // Remove any existing marker for this date
+  db.workouts = db.workouts.filter(w => !(w.date === date && w.activity_type));
+  if (type) {
+    db.workouts.push({
+      id: nextId(db.workouts), date, raw_text: ACTIVITY_TYPES[type] || '✓',
+      activity_type: type, activity: type, duration_mins: 0,
+      created_at: new Date().toISOString()
+    });
   }
   writeDB(db);
   res.json({ ok: true });
