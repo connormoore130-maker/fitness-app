@@ -459,6 +459,42 @@ app.get('/api/exercises/recent-weights', (_req, res) => {
   res.json(result);
 });
 
+// All exercises with full history per exercise name
+app.get('/api/exercise-history', (_req, res) => {
+  const db = readDB();
+  const history = {};
+  // Collect all unique exercise names from programs
+  PROGRAMS.forEach(p => p.exercises.forEach(e => {
+    if (!history[e.name]) history[e.name] = { plan: p.id, meta: e, logs: [] };
+  }));
+  // Attach logged entries
+  db.exercises.forEach(entry => {
+    const key = Object.keys(history).find(k => k.toLowerCase() === entry.name.toLowerCase());
+    if (key) history[key].logs.push(entry);
+  });
+  // Sort logs newest first
+  Object.values(history).forEach(h => h.logs.sort((a,b) => b.date.localeCompare(a.date)));
+  res.json(history);
+});
+
+// Log weight for a specific exercise (simplified — just weight per set)
+app.post('/api/exercise-log', (req, res) => {
+  const { name, weight, reps, sets, unit='kg', date } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+  const db = readDB();
+  const entry = {
+    id: nextId(db.exercises),
+    name: name.trim(),
+    sets: Array.isArray(sets) ? sets : [{ reps: reps||0, weight: +weight||0 }],
+    unit,
+    date: date || localToday(),
+    created_at: new Date().toISOString(),
+  };
+  db.exercises.push(entry);
+  writeDB(db);
+  res.json(entry);
+});
+
 // Programs from Google Sheets
 app.get('/api/programs', (_req, res) => res.json(PROGRAMS));
 

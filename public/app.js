@@ -154,7 +154,7 @@ function navigate(view) {
 document.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>navigate(btn.dataset.view)));
 
 function renderView(v) {
-  ({dashboard:renderDashboard,streak:renderStreak,weight:renderWeight,nutrition:renderNutrition,plan:renderPlan,settings:renderSettings}[v]||(() => {}))();
+  ({dashboard:renderDashboard,streak:renderStreak,lifts:renderLifts,weight:renderWeight,nutrition:renderNutrition,settings:renderSettings}[v]||(() => {}))();
 }
 
 // ── Dashboard ─────────────────────────────────────────────
@@ -295,8 +295,21 @@ async function renderStreak() {
   const el = document.getElementById('view-streak');
   if (!el) return;
   el.innerHTML = '<p style="padding:20px;color:var(--text-2)">Loading…</p>';
-  const { days, streak } = await api.get('/api/streak-calendar');
+  const [{ days, streak }, programs] = await Promise.all([
+    api.get('/api/streak-calendar'),
+    api.get('/api/programs'),
+  ]);
   const today = new Date().toLocaleDateString('en-CA');
+  const todayDone = days[0]?.done;
+
+  // Determine today's plan (A/B alternating from Monday, skip Sundays as rest)
+  const dayOfWeek = new Date().getDay(); // 0=Sun
+  const planNames = { A: 'Plan A', B: 'Plan B' };
+  const isRest = dayOfWeek === 0;
+  // Alternate A/B: Mon/Wed/Fri = A, Tue/Thu/Sat = B
+  const planId = [null,'A','B','A','B','A','B',null][dayOfWeek];
+  const todayPlan = planId ? programs.find(p => p.id === planId) : null;
+  const doneThisWeek = days.slice(0, 7).filter(d => d.done).length;
 
   const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   // Build a map date→done for quick lookup
@@ -325,14 +338,33 @@ async function renderStreak() {
     <div class="page-header"><h1>Streak</h1></div>
     <div style="padding:0 16px 24px">
 
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
-        <div style="background:var(--accent);color:#fff;border-radius:16px;padding:16px 24px;text-align:center;min-width:90px">
-          <div style="font-size:36px;font-weight:800;line-height:1">${streak}</div>
-          <div style="font-size:12px;margin-top:4px;opacity:.85">day streak 🔥</div>
+      ${todayPlan ? `
+      <div class="card" style="margin-bottom:16px;border-left:4px solid #FF4D00">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#FF4D00;margin-bottom:6px">TODAY · ${todayPlan.name.toUpperCase()}</div>
+        <div style="font-size:13px;color:var(--text-2);margin-bottom:14px;line-height:1.5">
+          ${todayPlan.exercises.map(e=>`${e.name} <span style="color:var(--text-3)">${e.sets}×${e.reps}</span>`).join(' &nbsp;·&nbsp; ')}
         </div>
-        <button class="btn btn-primary" onclick="markToday()" id="mark-today-btn" style="flex:1;padding:14px">
-          ${days[0]?.done ? '✓ Done today' : '+ Mark today done'}
+        <button class="btn btn-primary" onclick="markToday()" style="width:100%;padding:13px;font-size:15px">
+          ${todayDone ? '✓ Logged — great work!' : '+ Log today done'}
         </button>
+      </div>
+      ` : `
+      <div class="card" style="margin-bottom:16px;text-align:center;padding:20px">
+        <div style="font-size:24px;margin-bottom:6px">😴</div>
+        <div style="font-weight:600">Rest day</div>
+        <div style="font-size:13px;color:var(--text-2);margin-top:4px">Recover well. Back at it tomorrow.</div>
+      </div>
+      `}
+
+      <div style="display:flex;gap:12px;margin-bottom:24px">
+        <div style="flex:1;background:var(--surface);border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border)">
+          <div style="font-size:28px;font-weight:800;color:#FF4D00">${streak}</div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:2px">day streak 🔥</div>
+        </div>
+        <div style="flex:1;background:var(--surface);border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border)">
+          <div style="font-size:28px;font-weight:800">${doneThisWeek}</div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:2px">this week</div>
+        </div>
       </div>
 
       <div style="margin-bottom:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center">
@@ -376,6 +408,111 @@ async function toggleDay(date, el) {
   if (date > new Date().toLocaleDateString('en-CA')) return;
   await api.post('/api/streak-calendar/toggle', { date });
   renderStreak();
+}
+
+// ── Lifts ─────────────────────────────────────────────────
+async function renderLifts() {
+  const el = document.getElementById('view-lifts');
+  if (!el) return;
+  el.innerHTML = '<p style="padding:20px;color:var(--text-2)">Loading…</p>';
+  const [history, programs] = await Promise.all([
+    api.get('/api/exercise-history'),
+    api.get('/api/programs'),
+  ]);
+
+  const planTabs = programs.map((p,i) => `
+    <button class="tab-btn ${i===0?'active':''}" onclick="showLiftsPlan('${p.id}',this)">${p.name}</button>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="page-header"><h1>Lifts</h1></div>
+    <div style="padding:0 16px 100px">
+      <div class="tabs" style="margin-bottom:16px">${planTabs}</div>
+      <div id="lifts-list"></div>
+    </div>
+  `;
+
+  window._liftsHistory = history;
+  window._liftsPrograms = programs;
+  showLiftsPlan(programs[0].id);
+}
+
+function showLiftsPlan(planId, tabBtn) {
+  if (tabBtn) {
+    document.querySelectorAll('#view-lifts .tab-btn').forEach(b => b.classList.toggle('active', b === tabBtn));
+  }
+  const history = window._liftsHistory || {};
+  const programs = window._liftsPrograms || [];
+  const plan = programs.find(p => p.id === planId);
+  if (!plan) return;
+
+  document.getElementById('lifts-list').innerHTML = plan.exercises.map(ex => {
+    const h = history[ex.name];
+    const logs = h?.logs || [];
+    const last = logs[0];
+    const prev = logs[1];
+    const lastWeight = last?.sets?.[0]?.weight;
+    const prevWeight = prev?.sets?.[0]?.weight;
+    const trend = lastWeight != null && prevWeight != null
+      ? lastWeight > prevWeight ? '↑' : lastWeight < prevWeight ? '↓' : '='
+      : '';
+    const trendColor = trend === '↑' ? '#22c55e' : trend === '↓' ? '#ef4444' : 'var(--text-3)';
+
+    return `
+      <div class="card lift-card" style="margin-bottom:10px" id="lift-${CSS.escape(ex.name)}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:15px;margin-bottom:2px">${escHtml(ex.name)}</div>
+            <div style="font-size:12px;color:var(--text-3)">${ex.sets}×${ex.reps}${ex.tempo?' · '+ex.tempo:''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:12px">
+            ${lastWeight != null ? `
+              <div style="font-size:20px;font-weight:700">${lastWeight}<span style="font-size:12px;font-weight:400;color:var(--text-3)"> kg</span></div>
+              ${trend ? `<div style="font-size:12px;color:${trendColor};font-weight:600">${trend} ${Math.abs(lastWeight-prevWeight).toFixed(1)}kg</div>` : ''}
+              <div style="font-size:11px;color:var(--text-3);margin-top:2px">${last.date}</div>
+            ` : `<div style="font-size:12px;color:var(--text-3)">No logs yet</div>`}
+          </div>
+        </div>
+        <div id="lift-input-${CSS.escape(ex.name)}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" inputmode="decimal" placeholder="${lastWeight ?? '0'}" id="lift-w-${CSS.escape(ex.name)}"
+              style="flex:1;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:16px;background:var(--surface);color:var(--text-1);outline:none"
+              onfocus="this.style.borderColor='#FF4D00'" onblur="this.style.borderColor='var(--border)'" />
+            <span style="color:var(--text-3);font-size:13px">kg</span>
+            <button class="btn btn-primary" style="padding:10px 16px" onclick="saveLifts('${ex.name.replace(/'/g,"\\'")}')">Save</button>
+          </div>
+          ${last ? `<div style="font-size:12px;color:var(--text-3);margin-top:6px">Last: ${lastWeight}kg on ${last.date}</div>` : ''}
+        </div>
+        <button onclick="toggleLiftInput('${ex.name.replace(/'/g,"\\'")}',this)"
+          style="margin-top:10px;width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:transparent;color:var(--text-2);font-size:13px;cursor:pointer;transition:all .15s">
+          + Log weight
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleLiftInput(name, btn) {
+  const panel = document.getElementById(`lift-input-${CSS.escape(name)}`);
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '✕ Cancel' : '+ Log weight';
+  if (open) {
+    panel.animate([{opacity:0,transform:'translateY(-6px)'},{opacity:1,transform:'translateY(0)'}],
+      {duration:180, easing:'cubic-bezier(0.23,1,0.32,1)', fill:'forwards'});
+    document.getElementById(`lift-w-${CSS.escape(name)}`)?.focus();
+  }
+}
+
+async function saveLifts(name) {
+  const input = document.getElementById(`lift-w-${CSS.escape(name)}`);
+  const weight = parseFloat(input.value);
+  if (!weight || isNaN(weight)) { input.focus(); return; }
+  await api.post('/api/exercise-log', { name, weight, sets:[{weight,reps:0}], unit:'kg' });
+  window._liftsHistory = await api.get('/api/exercise-history');
+  const activeTab = document.querySelector('#view-lifts .tab-btn.active');
+  const planId = activeTab?.textContent.includes('A') ? 'A' : 'B';
+  showLiftsPlan(planId);
 }
 
 // ── Log Workout ───────────────────────────────────────────
