@@ -356,13 +356,8 @@ async function renderStreak() {
               const isToday = day.date === today;
               const isFuture = day.date > today;
               const icon = day.type ? ACTIVITY_ICONS[day.type] : '';
-              return `<div onclick="openActivityPicker('${day.date}')" data-date="${day.date}"
-                style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:${isFuture?'default':'pointer'};
-                background:${day.done?'#FF4D00':isFuture?'transparent':'var(--surface)'};
-                border:2px solid ${isToday?'#FF4D00':day.done?'#FF4D00':'var(--border)'};
-                opacity:${isFuture?0.15:1};user-select:none">
-                ${icon}
-              </div>`;
+              const cls = ['streak-cell', day.done?'done':'', isToday?'today':'', isFuture?'future':''].filter(Boolean).join(' ');
+              return `<div class="${cls}" onclick="openActivityPicker('${day.date}')" data-date="${day.date}">${icon}</div>`;
             }).join('')}
           </div>`).join('')}
       </div>
@@ -371,19 +366,19 @@ async function renderStreak() {
     </div>
 
     <!-- Activity picker overlay -->
-    <div id="activity-picker-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5)" onclick="closeActivityPicker()"></div>
-    <div id="activity-picker" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:201;background:var(--card-bg);border-radius:20px 20px 0 0;padding:20px 20px 40px;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.32,0.72,0,1)">
-      <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px"></div>
-      <div id="activity-picker-date" style="font-size:12px;color:var(--text-3);text-align:center;margin-bottom:16px"></div>
+    <div id="activity-picker-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);transition:opacity 0.3s ease" onclick="closeActivityPicker()"></div>
+    <div id="activity-picker" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:201;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 20px 40px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.32,0.72,0,1)">
+      <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px;opacity:0.2"></div>
+      <div id="activity-picker-date" style="font-size:12px;font-weight:700;letter-spacing:.06em;text-align:center;margin-bottom:16px;text-transform:uppercase;opacity:0.5"></div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
         ${[['weights','🏋️','Weights'],['running','👟','Running'],['boxing','🥊','Boxing'],['cycling','🚴','Cycling'],['yoga','🧘','Yoga'],['other','✓','Other']].map(([t,icon,label])=>`
-          <button onclick="setActivity('${t}')" style="background:var(--surface);border:2px solid var(--border);border-radius:14px;padding:16px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.15s ease-out" onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform=''">
+          <button class="activity-btn" onclick="setActivity('${t}',event)" style="position:relative;overflow:hidden">
             <span style="font-size:28px">${icon}</span>
-            <span style="font-size:11px;font-weight:600;color:var(--text-2)">${label}</span>
+            <span style="font-size:11px;font-weight:600;opacity:0.6">${label}</span>
           </button>
         `).join('')}
       </div>
-      <button onclick="setActivity(null)" style="width:100%;padding:14px;background:transparent;border:1.5px solid var(--border);border-radius:12px;color:var(--text-3);font-size:14px;cursor:pointer">Clear day</button>
+      <button onclick="setActivity(null)" style="width:100%;padding:14px;background:transparent;border:1.5px solid rgba(0,0,0,0.15);border-radius:12px;font-size:14px;cursor:pointer;opacity:0.5;transition:opacity 0.15s ease" onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='0.5'">Clear day</button>
     </div>
   `;
 }
@@ -411,11 +406,28 @@ function closeActivityPicker() {
     overlay.style.display = 'none';
   }, 300);
 }
-async function setActivity(type) {
+async function setActivity(type, event) {
   if (!_pickerDate) return;
+  // Ripple on the button
+  if (event && type) {
+    const btn = event.currentTarget;
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    const rect = btn.getBoundingClientRect();
+    r.style.left = (event.clientX - rect.left) + 'px';
+    r.style.top  = (event.clientY - rect.top)  + 'px';
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 500);
+  }
+  const date = _pickerDate;
   closeActivityPicker();
-  await api.post('/api/streak-calendar/set', { date: _pickerDate, type });
-  renderStreak();
+  await api.post('/api/streak-calendar/set', { date, type });
+  await renderStreak();
+  // Pop the icon on the saved cell
+  if (type) {
+    const cell = document.querySelector(`[data-date="${date}"]`);
+    if (cell) { cell.classList.add('icon-pop'); cell.addEventListener('animationend', () => cell.classList.remove('icon-pop'), {once:true}); }
+  }
 }
 
 // ── Lifts ─────────────────────────────────────────────────
