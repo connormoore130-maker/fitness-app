@@ -631,14 +631,14 @@ const ACTIVITY_TYPES = { weights: '🏋️', running: '👟', boxing: '🥊', cy
 // ── Streak calendar ───────────────────────────────────────
 app.get('/api/streak-calendar', (_req, res) => {
   const db = readDB();
-  // Build a map of date → activity type
   const dateMap = {};
   for (const w of db.workouts) {
     if (!dateMap[w.date]) dateMap[w.date] = w.activity_type || (w.raw_text === '✓' ? 'other' : 'weights');
   }
+  // Return a full year of history
   const days = [];
   const d = new Date();
-  for (let i = 0; i < 84; i++) {
+  for (let i = 0; i < 366; i++) {
     const ds = d.toLocaleDateString('en-CA');
     days.push({ date: ds, done: !!dateMap[ds], type: dateMap[ds] || null });
     d.setDate(d.getDate() - 1);

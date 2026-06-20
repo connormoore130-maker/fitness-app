@@ -256,7 +256,7 @@ async function renderDashboard() {
           <div class="today-plan-meta">${todayPlan.duration_mins>0?`${todayPlan.duration_mins} min · `:''}${todayPlan.intensity.charAt(0).toUpperCase()+todayPlan.intensity.slice(1)} intensity</div>
           ${todayPlan.completed
             ? '<div style="color:var(--green);font-size:13px;margin-top:8px;font-weight:600">✓ Completed</div>'
-            : `<button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%" onclick="navigate('log')">Log it →</button>`}
+            : `<button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%" onclick="navigate('streak');_autoOpenPicker=true">Log it →</button>`}
         </div>` : `<div class="card"><div class="card-title">Today</div><p style="color:var(--text-2);font-size:13px">Rest day — enjoy it.</p></div>`}
       <div class="card">
         <div class="card-title">Calories Today</div>
@@ -292,47 +292,58 @@ async function renderDashboard() {
 
 // ── Streak ────────────────────────────────────────────────
 const ACTIVITY_ICONS = { weights:'🏋️', running:'👟', boxing:'🥊', cycling:'🚴', yoga:'🧘', other:'✓' };
+let _activeMonth = null;
+let _autoOpenPicker = false;
+let _streakCache = null;
 
-async function renderStreak() {
+async function renderStreak(skipFetch) {
   const el = document.getElementById('view-streak');
   if (!el) return;
-  el.innerHTML = '<p style="padding:20px;color:var(--text-2)">Loading…</p>';
-  const { days, streak } = await api.get('/api/streak-calendar');
+  if (!skipFetch) {
+    el.innerHTML = '<p style="padding:20px;color:var(--text-2)">Loading…</p>';
+    _streakCache = await api.get('/api/streak-calendar');
+  }
+  const { days, streak } = _streakCache;
   const today = new Date().toLocaleDateString('en-CA');
+  if (!_activeMonth) _activeMonth = today.slice(0, 7);
 
-  // Build maps
   const typeMap = {};
   days.forEach(d => { if (d.type) typeMap[d.date] = d.type; });
 
-  // Week summary (last 7 days)
+  // Week summary (Mon–Sun of current week)
   const thisWeek = days.filter(d => d.date <= today).slice(0, 7);
   const weekDone = thisWeek.filter(d => d.done).length;
   const typeCounts = {};
   thisWeek.forEach(d => { if (d.type) typeCounts[d.type] = (typeCounts[d.type]||0)+1; });
-  const weekSummary = Object.entries(typeCounts).map(([t,n])=>`${ACTIVITY_ICONS[t]}×${n}`).join(' ');
+  const weekSummary = Object.entries(typeCounts).map(([t,n])=>`${ACTIVITY_ICONS[t]}×${n}`).join('  ');
+
+  // Available months from history (most recent first)
+  const monthSet = new Set(days.map(d => d.date.slice(0,7)));
+  monthSet.add(today.slice(0,7));
+  const months = [...monthSet].sort().reverse();
+
+  // Build monthly calendar grid
+  const [yr, mo] = _activeMonth.split('-').map(Number);
+  const firstOfMonth = new Date(yr, mo - 1, 1);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const startPad = (firstOfMonth.getDay() + 6) % 7; // Mon=0
+  const cells = [];
+  for (let i = 0; i < startPad; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${_activeMonth}-${String(d).padStart(2,'0')}`;
+    cells.push({ date: ds, type: typeMap[ds]||null, done: !!typeMap[ds] });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  const calRows = [];
+  for (let i = 0; i < cells.length; i += 7) calRows.push(cells.slice(i, i+7));
 
   const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const todayDate = new Date(today + 'T12:00:00');
-  const todayCol = (todayDate.getDay() + 6) % 7;
-  const weekMonday = new Date(todayDate);
-  weekMonday.setDate(todayDate.getDate() - todayCol);
-  const weeks = [];
-  for (let w = 0; w < 12; w++) {
-    const row = [];
-    for (let d = 0; d < 7; d++) {
-      const dt = new Date(weekMonday);
-      dt.setDate(weekMonday.getDate() - w * 7 + d);
-      const ds = dt.toLocaleDateString('en-CA');
-      row.push({ date: ds, done: !!typeMap[ds], type: typeMap[ds] || null });
-    }
-    weeks.push(row);
-  }
 
   el.innerHTML = `
     <div class="page-header"><h1>Streak</h1></div>
     <div style="padding:0 16px 24px">
 
-      <div style="display:flex;gap:12px;margin-bottom:24px">
+      <div style="display:flex;gap:12px;margin-bottom:20px">
         <div style="flex:1;background:var(--surface);border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border)">
           <div style="font-size:28px;font-weight:800;color:#FF4D00">${streak}</div>
           <div style="font-size:11px;color:var(--text-3);margin-top:2px">day streak 🔥</div>
@@ -343,44 +354,75 @@ async function renderStreak() {
         </div>
       </div>
 
-      ${weekSummary ? `<div style="background:var(--surface);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:15px;border:1.5px solid var(--border)">${weekSummary}</div>` : ''}
+      ${weekSummary ? `<div class="week-summary" style="background:var(--surface);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:16px;border:1.5px solid var(--border);letter-spacing:.04em">${weekSummary}</div>` : ''}
 
-      <div style="margin-bottom:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center">
-        ${dayLabels.map(d=>`<div style="font-size:10px;font-weight:600;color:var(--text-3);padding:2px 0">${d}</div>`).join('')}
+      <!-- Month tabs -->
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;margin-bottom:20px;-webkit-overflow-scrolling:touch;scrollbar-width:none" id="month-tabs">
+        ${months.map(m => {
+          const [y2,m2] = m.split('-').map(Number);
+          const label = new Date(y2, m2-1, 1).toLocaleDateString('en-GB', { month:'short', year:'numeric' });
+          const active = m === _activeMonth;
+          return `<button onclick="setStreakMonth('${m}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.18s cubic-bezier(0.23,1,0.32,1);
+            background:${active?'#000':'var(--surface)'};color:${active?'#fff':'var(--text-2)'};border:1.5px solid ${active?'#000':'var(--border)'}">
+            ${label}
+          </button>`;
+        }).join('')}
       </div>
 
+      <!-- Day labels -->
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;margin-bottom:6px">
+        ${dayLabels.map(d=>`<div style="font-size:10px;font-weight:700;color:var(--text-3);padding:2px 0">${d}</div>`).join('')}
+      </div>
+
+      <!-- Calendar grid -->
       <div style="display:flex;flex-direction:column;gap:4px" id="streak-grid">
-        ${weeks.map(week => `
+        ${calRows.map(row => `
           <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
-            ${week.map(day => {
+            ${row.map(day => {
+              if (!day) return `<div style="aspect-ratio:1"></div>`;
               const isToday = day.date === today;
               const isFuture = day.date > today;
-              const icon = day.type ? ACTIVITY_ICONS[day.type] : '';
               const cls = ['streak-cell', day.done?'done':'', isToday?'today':'', isFuture?'future':''].filter(Boolean).join(' ');
-              return `<div class="${cls}" onclick="openActivityPicker('${day.date}')" data-date="${day.date}">${icon}</div>`;
+              const dayNum = parseInt(day.date.slice(-2));
+              return `<div class="${cls}" onclick="openActivityPicker('${day.date}')" data-date="${day.date}">
+                <span style="font-size:9px;opacity:${day.done?0.7:0.4};position:absolute;top:4px;left:0;right:0;text-align:center;font-weight:700">${dayNum}</span>
+                ${day.type ? `<span style="font-size:16px;margin-top:6px">${ACTIVITY_ICONS[day.type]}</span>` : ''}
+              </div>`;
             }).join('')}
           </div>`).join('')}
       </div>
 
-      <div style="margin-top:20px;font-size:12px;color:var(--text-3);text-align:center">Tap any day to log your activity</div>
+      <div style="margin-top:16px;font-size:12px;color:var(--text-3);text-align:center">Tap any day to log your activity</div>
     </div>
 
     <!-- Activity picker overlay -->
-    <div id="activity-picker-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);transition:opacity 0.3s ease" onclick="closeActivityPicker()"></div>
+    <div id="activity-picker-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5)" onclick="closeActivityPicker()"></div>
     <div id="activity-picker" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:201;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 20px 40px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.32,0.72,0,1)">
-      <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px;opacity:0.2"></div>
-      <div id="activity-picker-date" style="font-size:12px;font-weight:700;letter-spacing:.06em;text-align:center;margin-bottom:16px;text-transform:uppercase;opacity:0.5"></div>
+      <div style="width:36px;height:4px;background:#000;border-radius:2px;margin:0 auto 20px;opacity:0.12"></div>
+      <div id="activity-picker-date" style="font-size:12px;font-weight:700;letter-spacing:.06em;text-align:center;margin-bottom:20px;text-transform:uppercase;opacity:0.4"></div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
         ${[['weights','🏋️','Weights'],['running','👟','Running'],['boxing','🥊','Boxing'],['cycling','🚴','Cycling'],['yoga','🧘','Yoga'],['other','✓','Other']].map(([t,icon,label])=>`
           <button class="activity-btn" onclick="setActivity('${t}',event)" style="position:relative;overflow:hidden">
             <span style="font-size:28px">${icon}</span>
-            <span style="font-size:11px;font-weight:600;opacity:0.6">${label}</span>
+            <span style="font-size:11px;font-weight:600;opacity:0.5">${label}</span>
           </button>
         `).join('')}
       </div>
-      <button onclick="setActivity(null)" style="width:100%;padding:14px;background:transparent;border:1.5px solid rgba(0,0,0,0.15);border-radius:12px;font-size:14px;cursor:pointer;opacity:0.5;transition:opacity 0.15s ease" onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='0.5'">Clear day</button>
+      <button onclick="setActivity(null)" style="width:100%;padding:14px;background:transparent;border:1.5px solid rgba(0,0,0,0.12);border-radius:12px;font-size:14px;cursor:pointer;color:var(--text-3);transition:opacity 0.15s">Clear day</button>
     </div>
   `;
+
+  // Scroll active month tab into view
+  requestAnimationFrame(() => {
+    const active = document.querySelector('#month-tabs button[style*="background:#000"]');
+    if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
+    if (_autoOpenPicker) { _autoOpenPicker = false; openActivityPicker(today); }
+  });
+}
+
+function setStreakMonth(m) {
+  _activeMonth = m;
+  renderStreak(true);
 }
 
 let _pickerDate = null;
