@@ -215,7 +215,7 @@ async function renderDashboard() {
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Streak</div>
-        <div class="stat-value">${stats.streak}</div>
+        <div class="stat-value mint">${stats.streak}</div>
         <div class="stat-sub">${stats.streak===1?'day':'days'} in a row</div>
       </div>
       <div class="stat-card">
@@ -258,18 +258,18 @@ async function renderDashboard() {
             ? '<div style="color:var(--green);font-size:13px;margin-top:8px;font-weight:600">✓ Completed</div>'
             : `<button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%" onclick="navigate('streak');_autoOpenPicker=true">Log it →</button>`}
         </div>` : `<div class="card"><div class="card-title">Today</div><p style="color:var(--text-2);font-size:13px">Rest day — enjoy it.</p></div>`}
-      <div class="card">
-        <div class="card-title">Calories Today</div>
-        <div class="cal-ring-wrap">
-          <svg class="ring-svg" viewBox="0 0 64 64">
-            <circle class="ring-bg" cx="32" cy="32" r="28"/>
-            <circle class="ring-fg ${isOver?'over':''}" cx="32" cy="32" r="28" stroke-dasharray="${circ}" stroke-dashoffset="${circ}" data-offset="${offset}" ${calPct===0?'style="display:none"':''}/>
+      <div class="card" style="display:flex;align-items:center;gap:24px">
+        <div style="position:relative;flex:none">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#ffffff14" stroke-width="9"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="${isOver?'#ff4d4d':'#00ff88'}" stroke-width="9" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="${Math.round(314*(1-Math.min(1,calPct/100)))}" transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .6s cubic-bezier(0.23,1,0.32,1)"/>
           </svg>
-          <div>
-            <div class="ring-text">${stats.today.calories}</div>
-            <div class="ring-sub">of ${s.calorieGoal} kcal</div>
-            <div class="ring-sub" style="margin-top:4px">${stats.today.protein.toFixed(0)}g protein</div>
-          </div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-size:22px;font-weight:700;color:#f4f4f5">${calPct}%</div>
+        </div>
+        <div>
+          <div class="card-title">Macros</div>
+          <div style="font-family:'Space Grotesk';font-size:34px;font-weight:700;line-height:1;color:#f4f4f5">${stats.today.calories}</div>
+          <div style="font-size:13px;color:#85858c;margin-top:8px">kcal · ${stats.today.protein.toFixed(0)}g protein</div>
         </div>
       </div>
     </div>
@@ -287,11 +287,18 @@ async function renderDashboard() {
   const recent = await api.get('/api/workouts?limit=4');
   document.getElementById('dash-workouts').innerHTML = recent.length
     ? `<div class="workout-list">${recent.map(w=>workoutCard(w,false)).join('')}</div>`
-    : `<div class="empty-state"><div class="empty-state-icon">🔥</div><p>No workouts yet.</p><button class="btn btn-primary btn-sm" onclick="navigate('streak')">Start Streak</button></div>`;
+    : `<div class="empty-state">
+        <div class="empty-state-icon">🔥</div>
+        <p>No workouts logged yet.<br>Tap a day on the Streak page to start your first session.</p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px">
+          <button class="btn btn-primary btn-sm" onclick="navigate('streak')">Log a Workout</button>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('lifts')">Start Lifting</button>
+        </div>
+       </div>`;
 }
 
 // ── Streak ────────────────────────────────────────────────
-const ACTIVITY_ICONS = { weights:'🏋️', running:'👟', boxing:'🥊', cycling:'🚴', yoga:'🧘', other:'✓' };
+const ACTIVITY_ICONS = { weights:'🏋️', running:'👟', boxing:'🥊', cycling:'🚴', yoga:'🧘', other:'✓', rest:'💤' };
 let _activeMonth = null;
 let _autoOpenPicker = false;
 let _streakCache = null;
@@ -341,80 +348,89 @@ async function renderStreak(skipFetch) {
 
   el.innerHTML = `
     <div class="page-header"><h1>Streak</h1></div>
-    <div style="padding:0 16px 24px">
+    <div style="height:1px;background:#ffffff14;margin:0 0 28px"></div>
 
-      <div style="display:flex;gap:12px;margin-bottom:20px">
-        <div style="flex:1;background:var(--surface);border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border)">
-          <div style="font-size:28px;font-weight:800;color:#FF4D00">${streak}</div>
-          <div style="font-size:11px;color:var(--text-3);margin-top:2px">day streak 🔥</div>
-        </div>
-        <div style="flex:1;background:var(--surface);border-radius:12px;padding:14px;text-align:center;border:1.5px solid var(--border)">
-          <div style="font-size:28px;font-weight:800">${weekDone}</div>
-          <div style="font-size:11px;color:var(--text-3);margin-top:2px">this week</div>
-        </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px">
+      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:18px;padding:28px;text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:52px;font-weight:700;color:#00ff88;line-height:1">${streak}</div>
+        <div style="font-size:13.5px;color:#85858c;margin-top:12px">day streak</div>
       </div>
-
-      ${weekSummary ? `<div class="week-summary" style="background:var(--surface);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-size:16px;border:1.5px solid var(--border);letter-spacing:.04em">${weekSummary}</div>` : ''}
-
-      <!-- Month tabs -->
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;margin-bottom:20px;-webkit-overflow-scrolling:touch;scrollbar-width:none" id="month-tabs">
-        ${months.map(m => {
-          const [y2,m2] = m.split('-').map(Number);
-          const label = new Date(y2, m2-1, 1).toLocaleDateString('en-GB', { month:'short', year:'numeric' });
-          const active = m === _activeMonth;
-          return `<button onclick="setStreakMonth('${m}')" style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.18s cubic-bezier(0.23,1,0.32,1);
-            background:${active?'#000':'var(--surface)'};color:${active?'#fff':'var(--text-2)'};border:1.5px solid ${active?'#000':'var(--border)'}">
-            ${label}
-          </button>`;
-        }).join('')}
+      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:18px;padding:28px;text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:52px;font-weight:700;color:#f4f4f5;line-height:1">${weekDone}</div>
+        <div style="font-size:13.5px;color:#85858c;margin-top:12px">this week</div>
       </div>
-
-      <!-- Day labels -->
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;margin-bottom:6px">
-        ${dayLabels.map(d=>`<div style="font-size:10px;font-weight:700;color:var(--text-3);padding:2px 0">${d}</div>`).join('')}
-      </div>
-
-      <!-- Calendar grid -->
-      <div style="display:flex;flex-direction:column;gap:4px" id="streak-grid">
-        ${calRows.map(row => `
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
-            ${row.map(day => {
-              if (!day) return `<div style="aspect-ratio:1"></div>`;
-              const isToday = day.date === today;
-              const isFuture = day.date > today;
-              const cls = ['streak-cell', day.done?'done':'', isToday?'today':'', isFuture?'future':''].filter(Boolean).join(' ');
-              const dayNum = parseInt(day.date.slice(-2));
-              return `<div class="${cls}" onclick="openActivityPicker('${day.date}')" data-date="${day.date}">
-                <span style="font-size:9px;opacity:${day.done?0.7:0.4};position:absolute;top:4px;left:0;right:0;text-align:center;font-weight:700">${dayNum}</span>
-                ${day.type ? `<span style="font-size:16px;margin-top:6px">${ACTIVITY_ICONS[day.type]}</span>` : ''}
-              </div>`;
-            }).join('')}
-          </div>`).join('')}
-      </div>
-
-      <div style="margin-top:16px;font-size:12px;color:var(--text-3);text-align:center">Tap any day to log your activity</div>
     </div>
 
+    ${weekSummary ? `<div style="background:#141417;border:1px solid #ffffff0d;border-radius:12px;padding:12px 18px;margin-bottom:24px;font-size:16px;letter-spacing:.04em">${weekSummary}</div>` : ''}
+
+    <!-- Month tabs -->
+    <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;margin-bottom:26px;-webkit-overflow-scrolling:touch;scrollbar-width:none" id="month-tabs">
+      ${months.map(m => {
+        const [y2,m2] = m.split('-').map(Number);
+        const label = new Date(y2, m2-1, 1).toLocaleDateString('en-GB', { month:'short', year:'numeric' });
+        const active = m === _activeMonth;
+        return `<button onclick="setStreakMonth('${m}')" style="flex-shrink:0;padding:9px 18px;border-radius:999px;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.18s cubic-bezier(0.23,1,0.32,1);border:1px solid ${active?'transparent':'#ffffff14'};background:${active?'#00ff88':'#141417'};color:${active?'#06120c':'#9a9aa0'}">
+          ${label}
+        </button>`;
+      }).join('')}
+    </div>
+
+    <!-- Day labels -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;text-align:center;margin-bottom:10px">
+      ${dayLabels.map(d=>`<div style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#6c6c72;text-transform:uppercase">${d}</div>`).join('')}
+    </div>
+
+    <!-- Calendar grid -->
+    <div style="display:flex;flex-direction:column;gap:10px" id="streak-grid">
+      ${calRows.map(row => `
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px">
+          ${row.map(day => {
+            if (!day) return `<div style="aspect-ratio:1"></div>`;
+            const isToday = day.date === today;
+            const isFuture = day.date > today;
+            const isRest = day.type === 'rest';
+            const cls = ['streak-cell',
+              day.done && !isRest ? 'done' : '',
+              day.done &&  isRest ? 'rest-day' : '',
+              isToday ? 'today' : '',
+              isFuture ? 'future' : '',
+            ].filter(Boolean).join(' ');
+            const dayNum = parseInt(day.date.slice(-2));
+            const icon = day.type ? ACTIVITY_ICONS[day.type] : '';
+            return `<div class="${cls}" onclick="openActivityPicker('${day.date}')" data-date="${day.date}">
+              <span class="streak-day-num">${dayNum}</span>
+              ${icon ? `<div class="streak-cell-icon">${icon}</div>` : `<span class="streak-dot"></span>`}
+            </div>`;
+          }).join('')}
+        </div>`).join('')}
+    </div>
+
+    <div style="margin-top:24px;font-size:13.5px;color:#6c6c72;text-align:center">Tap any day to log your activity</div>
+
     <!-- Activity picker overlay -->
-    <div id="activity-picker-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5)" onclick="closeActivityPicker()"></div>
-    <div id="activity-picker" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:201;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 20px 40px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.32,0.72,0,1)">
-      <div style="width:36px;height:4px;background:#000;border-radius:2px;margin:0 auto 20px;opacity:0.12"></div>
-      <div id="activity-picker-date" style="font-size:12px;font-weight:700;letter-spacing:.06em;text-align:center;margin-bottom:20px;text-transform:uppercase;opacity:0.4"></div>
+    <div id="activity-picker-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6)" onclick="closeActivityPicker()"></div>
+    <div id="activity-picker" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:201;background:#141417;border-radius:20px 20px 0 0;padding:20px 20px 44px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.32,0.72,0,1)">
+      <div style="width:36px;height:4px;background:#ffffff20;border-radius:2px;margin:0 auto 20px"></div>
+      <div id="activity-picker-date" style="font-family:'Space Grotesk';font-size:13px;font-weight:600;letter-spacing:.08em;text-align:center;margin-bottom:20px;text-transform:uppercase;color:#6c6c72"></div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
         ${[['weights','🏋️','Weights'],['running','👟','Running'],['boxing','🥊','Boxing'],['cycling','🚴','Cycling'],['yoga','🧘','Yoga'],['other','✓','Other']].map(([t,icon,label])=>`
           <button class="activity-btn" onclick="setActivity('${t}',event)" style="position:relative;overflow:hidden">
             <span style="font-size:28px">${icon}</span>
-            <span style="font-size:11px;font-weight:600;opacity:0.5">${label}</span>
+            <span style="font-size:12px;font-weight:600;color:#9a9aa0">${label}</span>
           </button>
         `).join('')}
       </div>
-      <button onclick="setActivity(null)" style="width:100%;padding:14px;background:transparent;border:1.5px solid rgba(0,0,0,0.12);border-radius:12px;font-size:14px;cursor:pointer;color:var(--text-3);transition:opacity 0.15s">Clear day</button>
+      <button class="activity-btn" onclick="setActivity('rest',event)" style="width:100%;flex-direction:row;justify-content:center;gap:12px;margin-bottom:12px;border-radius:12px;padding:14px 16px;position:relative;overflow:hidden">
+        <span style="font-size:24px">💤</span>
+        <span style="font-size:13px;font-weight:600;color:#9a9aa0">Rest Day</span>
+      </button>
+      <button onclick="setActivity(null)" style="width:100%;padding:14px;background:transparent;border:1px solid #ffffff1f;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;color:#6c6c72;transition:border-color .15s,color .15s">Clear day</button>
     </div>
   `;
 
   // Scroll active month tab into view
   requestAnimationFrame(() => {
-    const active = document.querySelector('#month-tabs button[style*="background:#000"]');
+    const active = document.querySelector('#month-tabs button[style*="background:#00ff88"]');
     if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
     if (_autoOpenPicker) { _autoOpenPicker = false; openActivityPicker(today); }
   });
@@ -473,6 +489,18 @@ async function setActivity(type, event) {
 }
 
 // ── Lifts ─────────────────────────────────────────────────
+function calcPR(logs) {
+  let maxW = 0, prSet = null;
+  for (const log of logs) {
+    for (const set of (log.sets || [])) {
+      if ((set.weight || 0) > maxW) { maxW = set.weight; prSet = { ...set, date: log.date }; }
+    }
+  }
+  return prSet;
+}
+
+let _currentLiftsPlanId = 'A';
+
 async function renderLifts() {
   const el = document.getElementById('view-lifts');
   if (!el) return;
@@ -488,67 +516,97 @@ async function renderLifts() {
 
   el.innerHTML = `
     <div class="page-header"><h1>Lifts</h1></div>
-    <div style="padding:0 16px 100px">
-      <div class="tabs" style="margin-bottom:16px">${planTabs}</div>
+    <div style="padding-bottom:100px">
+      <div class="tab-bar" style="margin-bottom:18px;width:100%">${planTabs}</div>
       <div id="lifts-list"></div>
     </div>
   `;
 
   window._liftsHistory = history;
   window._liftsPrograms = programs;
-  showLiftsPlan(programs[0].id);
+  _currentLiftsPlanId = programs[0]?.id || 'A';
+  showLiftsPlan(_currentLiftsPlanId);
 }
 
 function showLiftsPlan(planId, tabBtn) {
+  _currentLiftsPlanId = planId;
   if (tabBtn) {
     document.querySelectorAll('#view-lifts .tab-btn').forEach(b => b.classList.toggle('active', b === tabBtn));
   }
-  const history = window._liftsHistory || {};
+  const history  = window._liftsHistory  || {};
   const programs = window._liftsPrograms || [];
   const plan = programs.find(p => p.id === planId);
   if (!plan) return;
 
   document.getElementById('lifts-list').innerHTML = plan.exercises.map(ex => {
-    const h = history[ex.name];
+    const h    = history[ex.name];
     const logs = h?.logs || [];
     const last = logs[0];
     const prev = logs[1];
-    const lastWeight = last?.sets?.[0]?.weight;
-    const prevWeight = prev?.sets?.[0]?.weight;
-    const trend = lastWeight != null && prevWeight != null
-      ? lastWeight > prevWeight ? '↑' : lastWeight < prevWeight ? '↓' : '='
-      : '';
-    const trendColor = trend === '↑' ? '#22c55e' : trend === '↓' ? '#ef4444' : 'var(--text-3)';
 
+    // PR across all history
+    const pr = calcPR(logs);
+
+    // Max weight of most recent session
+    const lastMax = last ? Math.max(...last.sets.map(s => s.weight || 0)) : null;
+    const prevMax = prev ? Math.max(...prev.sets.map(s => s.weight || 0)) : null;
+
+    // Progressive overload delta
+    const delta = lastMax != null && prevMax != null ? +(lastMax - prevMax).toFixed(1) : null;
+    const deltaHtml = delta !== null
+      ? `<div class="lift-delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'same'}">${delta > 0 ? '↑ +' : delta < 0 ? '↓ ' : '= '}${Math.abs(delta)}kg</div>`
+      : '';
+
+    // Last session summary
+    const lastSessionHtml = last
+      ? `<div class="lift-last-session-text">${fmtDateShort(last.date)}: ${last.sets.map(s => `${s.weight||'—'}×${s.reps}`).join(' · ')}</div>`
+      : '';
+
+    const prHtml = pr ? `<div class="lift-pr-badge">PB ${pr.weight}kg</div>` : '';
+
+    const setCount = typeof ex.sets === 'number' ? ex.sets : (parseInt(ex.sets) || 3);
+    const lastSets = last?.sets || [];
+
+    // Build set rows
+    const setRows = Array.from({length: setCount}, (_, i) => {
+      const lw = lastSets[i]?.weight ?? (lastMax ?? '');
+      const lr = lastSets[i]?.reps   ?? '';
+      if (ex.timed) {
+        return `<div class="ex-set-row">
+          <span class="ex-set-label">S${i+1}</span>
+          <input class="form-input ex-set-input" placeholder="duration / notes" id="lift-w-${CSS.escape(ex.name)}-${i}" style="max-width:none;flex:1" />
+        </div>`;
+      }
+      return `<div class="ex-set-row">
+        <span class="ex-set-label">S${i+1}</span>
+        <input class="form-input ex-set-input" type="number" inputmode="decimal" step="0.25" placeholder="kg" id="lift-w-${CSS.escape(ex.name)}-${i}" value="${lw}" />
+        <span style="color:var(--text-3);font-size:15px;flex-shrink:0;padding:0 2px">×</span>
+        <input class="form-input ex-set-input" type="number" inputmode="numeric" placeholder="reps" id="lift-r-${CSS.escape(ex.name)}-${i}" value="${lr}" style="max-width:72px" />
+      </div>`;
+    }).join('');
+
+    const safeName = ex.name.replace(/'/g,"\\'");
     return `
-      <div class="card lift-card" style="margin-bottom:10px" id="lift-${CSS.escape(ex.name)}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div style="flex:1">
-            <div style="font-weight:600;font-size:15px;margin-bottom:2px">${escHtml(ex.name)}</div>
-            <div style="font-size:12px;color:var(--text-3)">${ex.sets}×${ex.reps}${ex.tempo?' · '+ex.tempo:''}</div>
+      <div class="card" style="margin-bottom:10px;padding:16px 18px" id="lift-${CSS.escape(ex.name)}">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div class="lift-ex-name">${escHtml(ex.name)}</div>
+            <div class="lift-ex-target">${setCount} × ${ex.reps}${ex.tempo ? ' · ' + ex.tempo : ''}${ex.rest ? ' · ' + ex.rest + 's rest' : ''}${ex.rpe ? ' · RPE ' + ex.rpe : ''}</div>
+            ${ex.notes ? `<div style="font-size:10px;color:#D97706;margin-top:3px;font-family:var(--font-mono)">📝 ${escHtml(ex.notes)}</div>` : ''}
           </div>
-          <div style="text-align:right;flex-shrink:0;margin-left:12px">
-            ${lastWeight != null ? `
-              <div style="font-size:20px;font-weight:700">${lastWeight}<span style="font-size:12px;font-weight:400;color:var(--text-3)"> kg</span></div>
-              ${trend ? `<div style="font-size:12px;color:${trendColor};font-weight:600">${trend} ${Math.abs(lastWeight-prevWeight).toFixed(1)}kg</div>` : ''}
-              <div style="font-size:11px;color:var(--text-3);margin-top:2px">${last.date}</div>
-            ` : `<div style="font-size:12px;color:var(--text-3)">No logs yet</div>`}
+          <div style="text-align:right;flex-shrink:0">
+            ${prHtml}
+            ${lastMax != null
+              ? `<div class="lift-peak">${lastMax}<span style="font-size:11px;color:rgba(0,0,0,0.4);font-family:var(--font-mono)"> kg</span></div>${deltaHtml}`
+              : `<div style="font-size:12px;color:var(--text-3);font-family:var(--font-mono)">No logs</div>`}
           </div>
         </div>
-        <div id="lift-input-${CSS.escape(ex.name)}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="number" inputmode="decimal" placeholder="${lastWeight ?? '0'}" id="lift-w-${CSS.escape(ex.name)}"
-              style="flex:1;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:16px;background:var(--surface);color:var(--text-1);outline:none"
-              onfocus="this.style.borderColor='#FF4D00'" onblur="this.style.borderColor='var(--border)'" />
-            <span style="color:var(--text-3);font-size:13px">kg</span>
-            <button class="btn btn-primary" style="padding:10px 16px" onclick="saveLifts('${ex.name.replace(/'/g,"\\'")}')">Save</button>
-          </div>
-          ${last ? `<div style="font-size:12px;color:var(--text-3);margin-top:6px">Last: ${lastWeight}kg on ${last.date}</div>` : ''}
+        ${lastSessionHtml}
+        <div id="lift-input-${CSS.escape(ex.name)}" style="display:none;margin-top:12px;padding-top:12px;border-top:1.5px solid rgba(0,0,0,0.1)">
+          ${setRows}
+          <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="saveLifts('${safeName}',${setCount},${ex.timed ? 'true' : 'false'})">Save Session</button>
         </div>
-        <button onclick="toggleLiftInput('${ex.name.replace(/'/g,"\\'")}',this)"
-          style="margin-top:10px;width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:transparent;color:var(--text-2);font-size:13px;cursor:pointer;transition:all .15s">
-          + Log weight
-        </button>
+        <button class="lift-log-btn" onclick="toggleLiftInput('${safeName}',this)">+ Log sets</button>
       </div>
     `;
   }).join('');
@@ -558,23 +616,43 @@ function toggleLiftInput(name, btn) {
   const panel = document.getElementById(`lift-input-${CSS.escape(name)}`);
   const open = panel.style.display === 'none';
   panel.style.display = open ? 'block' : 'none';
-  btn.textContent = open ? '✕ Cancel' : '+ Log weight';
+  btn.textContent = open ? '✕ Cancel' : '+ Log sets';
   if (open) {
-    panel.animate([{opacity:0,transform:'translateY(-6px)'},{opacity:1,transform:'translateY(0)'}],
+    panel.animate([{opacity:0,transform:'translateY(-4px)'},{opacity:1,transform:'translateY(0)'}],
       {duration:180, easing:'cubic-bezier(0.23,1,0.32,1)', fill:'forwards'});
-    document.getElementById(`lift-w-${CSS.escape(name)}`)?.focus();
+    setTimeout(() => document.getElementById(`lift-w-${CSS.escape(name)}-0`)?.focus(), 50);
   }
 }
 
-async function saveLifts(name) {
-  const input = document.getElementById(`lift-w-${CSS.escape(name)}`);
-  const weight = parseFloat(input.value);
-  if (!weight || isNaN(weight)) { input.focus(); return; }
-  await api.post('/api/exercise-log', { name, weight, sets:[{weight,reps:0}], unit:'kg' });
+async function saveLifts(name, setCount, isTimed = false) {
+  const sets = [];
+  for (let i = 0; i < setCount; i++) {
+    if (isTimed) {
+      const note = document.getElementById(`lift-w-${CSS.escape(name)}-${i}`)?.value.trim();
+      if (note) sets.push({ weight: 0, reps: 0, note });
+    } else {
+      const weight = parseFloat(document.getElementById(`lift-w-${CSS.escape(name)}-${i}`)?.value) || 0;
+      const reps   = parseInt(document.getElementById(`lift-r-${CSS.escape(name)}-${i}`)?.value)   || 0;
+      if (reps > 0) sets.push({ weight, reps });
+    }
+  }
+  if (!sets.length) { toast('Log at least one set', 'error'); return; }
+
+  // Check for new PB before saving
+  const prevPR    = calcPR((window._liftsHistory || {})[name]?.logs || []);
+  const newMaxW   = isTimed ? 0 : Math.max(...sets.map(s => s.weight));
+  const isNewPB   = !isTimed && newMaxW > 0 && (!prevPR || newMaxW > (prevPR?.weight || 0));
+
+  await api.post('/api/exercise-log', { name, sets, unit: 'kg' });
+
+  if (isNewPB) {
+    toast(`New PB! ${newMaxW}kg 🏆`);
+  } else {
+    toast(`${name} saved!`);
+  }
+
   window._liftsHistory = await api.get('/api/exercise-history');
-  const activeTab = document.querySelector('#view-lifts .tab-btn.active');
-  const planId = activeTab?.textContent.includes('A') ? 'A' : 'B';
-  showLiftsPlan(planId);
+  showLiftsPlan(_currentLiftsPlanId);
 }
 
 // ── Log Workout ───────────────────────────────────────────
@@ -1032,27 +1110,27 @@ function initWeightChart(entries) {
   const labels = entries.map(e=>fmtDateShort(e.date));
   const weights = entries.map(e=>e.weight);
   const avg = movingAverage(weights,7);
-  Chart.defaults.color = '#000';
-  Chart.defaults.borderColor = 'rgba(0,0,0,0.1)';
+  Chart.defaults.color = '#9a9aa0';
+  Chart.defaults.borderColor = '#ffffff12';
   weightChart = new Chart(canvas, {
     type:'line',
     data:{
       labels,
       datasets:[
-        {label:'Weight',data:weights,borderColor:'#FF4D00',backgroundColor:'rgba(255,77,0,0.06)',pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#FF4D00',pointBorderColor:'#fff',pointBorderWidth:2,tension:0.2,fill:true},
-        {label:'7-day avg',data:avg,borderColor:'#000',borderDash:[4,3],borderWidth:2,pointRadius:0,tension:0.3,fill:false},
+        {label:'Weight',data:weights,borderColor:'#00ff88',backgroundColor:'rgba(0,255,136,0.06)',pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#00ff88',pointBorderColor:'#141417',pointBorderWidth:2,tension:0.2,fill:true},
+        {label:'7-day avg',data:avg,borderColor:'#5a5a61',borderDash:[4,3],borderWidth:2,pointRadius:0,tension:0.3,fill:false},
       ]
     },
     options:{
       responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{position:'top',labels:{boxWidth:12,boxHeight:2,padding:16,font:{size:11,family:'Space Mono'},color:'rgba(0,0,0,0.5)'}},
-        tooltip:{backgroundColor:'#000',titleColor:'#FF4D00',bodyColor:'rgba(255,255,255,0.7)',borderColor:'#FF4D00',borderWidth:1,padding:10,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}`}},
+        legend:{position:'top',labels:{boxWidth:12,boxHeight:2,padding:16,font:{size:11,family:'Manrope'},color:'#85858c'}},
+        tooltip:{backgroundColor:'#141417',titleColor:'#00ff88',bodyColor:'#dcdce0',borderColor:'#ffffff14',borderWidth:1,padding:10,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}`}},
       },
       scales:{
-        x:{grid:{color:'rgba(0,0,0,0.06)'},ticks:{maxTicksLimit:8,maxRotation:0,font:{size:10,family:'Space Mono'},color:'rgba(0,0,0,0.4)'}},
-        y:{grid:{color:'rgba(0,0,0,0.06)'},ticks:{font:{size:10,family:'Space Mono'},color:'rgba(0,0,0,0.4)',callback:v=>v.toFixed(1)}},
+        x:{grid:{color:'#ffffff0a'},ticks:{maxTicksLimit:8,maxRotation:0,font:{size:10,family:'Manrope'},color:'#6c6c72'}},
+        y:{grid:{color:'#ffffff0a'},ticks:{font:{size:10,family:'Manrope'},color:'#6c6c72',callback:v=>v.toFixed(1)}},
       }
     }
   });
@@ -1077,8 +1155,12 @@ async function renderNutrition() {
 
 function switchNutritionTab(tab) {
   nutritionTab = tab;
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.textContent.trim().toLowerCase()===tab||(tab==='plan'&&b.textContent.includes('Meal'))));
-  if (tab==='today') renderNutritionToday();
+  document.querySelectorAll('#view-nutrition .tab-btn').forEach(b => {
+    const active = (tab === 'today' && b.textContent.includes('Daily')) ||
+                   (tab === 'plan'  && b.textContent.includes('Meal'));
+    b.classList.toggle('active', active);
+  });
+  if (tab === 'today') renderNutritionToday();
   else renderMealPlan();
 }
 

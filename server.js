@@ -626,7 +626,7 @@ app.post('/api/meal-plan/regenerate', (req, res) => {
   res.json(plan);
 });
 
-const ACTIVITY_TYPES = { weights: '🏋️', running: '👟', boxing: '🥊', cycling: '🚴', yoga: '🧘', other: '✓' };
+const ACTIVITY_TYPES = { weights: '🏋️', running: '👟', boxing: '🥊', cycling: '🚴', yoga: '🧘', other: '✓', rest: '💤' };
 
 // ── Streak calendar ───────────────────────────────────────
 app.get('/api/streak-calendar', (_req, res) => {
@@ -643,8 +643,11 @@ app.get('/api/streak-calendar', (_req, res) => {
     days.push({ date: ds, done: !!dateMap[ds], type: dateMap[ds] || null });
     d.setDate(d.getDate() - 1);
   }
+  // Grace period: if today isn't logged yet, count the streak ending yesterday
+  // so it doesn't show 0 until you've logged on the day
   let streak = 0;
   const s = new Date();
+  if (!dateMap[s.toLocaleDateString('en-CA')]) s.setDate(s.getDate() - 1);
   while (dateMap[s.toLocaleDateString('en-CA')]) {
     streak++; s.setDate(s.getDate() - 1);
   }
@@ -679,9 +682,9 @@ app.get('/api/stats', (_req, res) => {
 
   let streak = 0;
   const d = new Date();
-  while (true) {
-    const ds = d.toLocaleDateString('en-CA');
-    if (!db.workouts.some(w => w.date === ds)) break;
+  // Grace period: start from yesterday if today isn't logged yet
+  if (!db.workouts.some(w => w.date === d.toLocaleDateString('en-CA'))) d.setDate(d.getDate() - 1);
+  while (db.workouts.some(w => w.date === d.toLocaleDateString('en-CA'))) {
     streak++;
     d.setDate(d.getDate() - 1);
   }
@@ -819,6 +822,11 @@ cron.schedule('0 21 * * *', async () => {
     : "You haven't logged a workout today. Even a short session counts!";
 
   await sendPushToAll({ title: "Don't forget to log 📋", body, url: '/' });
+});
+
+// SPA fallback — serve index.html for any non-API route (fixes direct URL / refresh 404)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const os = require('os');
