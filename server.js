@@ -5,7 +5,7 @@ const webpush = require('web-push');
 const cron = require('node-cron');
 
 const app = express();
-const DB_FILE = path.join(__dirname, 'db.json');
+const DB_FILE = process.env.DB_PATH || path.join(__dirname, 'db.json');
 
 // ── Persistence ───────────────────────────────────────────
 const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, programCustomizations:{} };
