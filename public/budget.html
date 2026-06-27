@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget Dashboard · 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+:root {
+  --bg:       #020617;
+  --s1:       #0f172a;
+  --s2:       #1e293b;
+  --s3:       #293548;
+  --border:   rgba(148,163,184,0.1);
+  --border2:  rgba(148,163,184,0.18);
+  --text:     #f8fafc;
+  --muted:    #64748b;
+  --muted2:   #94a3b8;
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --amber:    #f59e0b;
+  --blue:     #38bdf8;
+  --purple:   #818cf8;
+  --violet:   #7c3aed;
+  --cyan:     #06b6d4;
+  --pink:     #ec4899;
+  --sidebar:  240px;
+  --radius:   14px;
+  --radius-s: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', -apple-system, sans-serif; font-size: 14px; line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+
+.layout { display: flex; min-height: 100vh; }
+
+/* ── SIDEBAR ── */
+.sidebar { width: var(--sidebar); background: var(--s1); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); overflow-y: auto; }
+.sidebar-brand { padding: 22px 20px 18px; border-bottom: 1px solid var(--border); }
+.brand-logo { display: flex; align-items: center; gap: 10px; }
+.brand-icon { width: 34px; height: 34px; background: linear-gradient(135deg, #22c55e, #059669); border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 0 12px rgba(34,197,94,0.3); }
+.brand-text h2 { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.brand-text p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.sidebar-income { margin: 14px 12px; background: rgba(34,197,94,0.07); border: 1px solid rgba(34,197,94,0.2); border-radius: var(--radius-s); padding: 10px 12px; }
+.income-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 2px; }
+.income-value { font-size: 18px; font-weight: 700; color: var(--green); font-family: 'IBM Plex Mono', monospace; }
+.income-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.sidebar-nav { flex: 1; padding: 8px 12px; }
+.nav-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); padding: 14px 8px 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-s); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted2); transition: all 0.18s ease; margin-bottom: 2px; user-select: none; }
+.nav-item:hover { background: var(--s2); color: var(--text); }
+.nav-item.active { background: rgba(124,58,237,0.15); color: #a78bfa; box-shadow: inset 2px 0 0 #7c3aed; }
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+.nav-badge { margin-left: auto; background: rgba(34,197,94,0.15); color: var(--green); font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 20px; }
+.sidebar-footer { border-top: 1px solid var(--border); padding: 12px; }
+.save-status { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; padding: 6px 8px; }
+.save-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.save-dot.syncing { background: var(--amber); animation: pulse 1s infinite; }
+.save-dot.error { background: var(--red); animation: none; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.sidebar-actions { display: flex; gap: 6px; margin-top: 8px; }
+.side-btn { flex: 1; font-size: 11px; font-weight: 500; padding: 7px 0; border-radius: var(--radius-s); cursor: pointer; border: 1px solid var(--border2); background: var(--s2); color: var(--muted2); transition: all 0.18s; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px; font-family: inherit; }
+.side-btn:hover { border-color: var(--violet); color: var(--text); background: rgba(124,58,237,0.1); }
+.side-btn svg { width: 12px; height: 12px; }
+
+/* ── MAIN ── */
+.main { margin-left: var(--sidebar); flex: 1; min-height: 100vh; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid var(--border); background: rgba(2,6,23,0.85); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 40; }
+.topbar-title h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.topbar-title p { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.topbar-right { display: flex; gap: 10px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-s); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.18s ease; font-family: inherit; white-space: nowrap; }
+.btn svg { width: 14px; height: 14px; }
+.btn-primary { background: var(--violet); color: #fff; }
+.btn-primary:hover { background: #6d28d9; box-shadow: 0 0 16px rgba(124,58,237,0.4); }
+.btn-ghost { background: var(--s2); color: var(--muted2); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+.btn-green { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+.btn-green:hover { background: rgba(34,197,94,0.2); }
+
+.page { padding: 24px 28px; flex: 1; }
+.view { display: none; animation: fadeSlide 0.22s ease; }
+.view.active { display: block; }
+@keyframes fadeSlide { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── CARDS ── */
+.card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+.summary-card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; transition: border-color 0.2s, transform 0.2s; position: relative; overflow: hidden; cursor: default; }
+.summary-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; border-radius: var(--radius) var(--radius) 0 0; opacity: 0; transition: opacity 0.2s; }
+.summary-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.summary-card:hover::before { opacity: 1; }
+.card-income::before { background: linear-gradient(90deg, var(--green), transparent); }
+.card-budget::before { background: linear-gradient(90deg, var(--cyan), transparent); }
+.card-spent::before  { background: linear-gradient(90deg, var(--amber), transparent); }
+.card-left::before   { background: linear-gradient(90deg, var(--purple), transparent); }
+.card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.card-label svg { width: 13px; height: 13px; }
+.card-value { font-size: 28px; font-weight: 700; line-height: 1; font-family: 'IBM Plex Mono', monospace; letter-spacing: -0.02em; }
+.card-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; margin-top: 8px; }
+.pill-green { background: rgba(34,197,94,0.12); color: var(--green); }
+.pill-red   { background: rgba(239,68,68,0.12); color: var(--red); }
+.pill-amber { background: rgba(245,158,11,0.12); color: var(--amber); }
+
+/* ── CHARTS ── */
+.chart-grid-main { display: grid; grid-template-columns: 1fr 320px; gap: 14px; margin-bottom: 14px; }
+.chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.chart-card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: border-color 0.2s; }
+.chart-card:hover { border-color: var(--border2); }
+.chart-card-title { font-size: 13px; font-weight: 600; }
+.chart-card-sub { font-size: 12px; color: var(--muted); margin-top: 2px; margin-bottom: 18px; }
+.donut-wrap { display: flex; gap: 20px; align-items: center; }
+.donut-canvas-wrap { position: relative; width: 170px; flex-shrink: 0; }
+.donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; pointer-events: none; }
+.donut-center-val { font-size: 18px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+.donut-center-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.legend { flex: 1; display: flex; flex-direction: column; gap: 7px; overflow-y: auto; max-height: 200px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: default; border-radius: 5px; padding: 3px 5px; transition: background 0.15s; }
+.legend-item:hover { background: var(--s2); }
+.legend-swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.legend-name { flex: 1; color: var(--muted2); font-size: 11px; }
+.legend-val { font-weight: 600; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+
+/* ── FILTER ── */
+.filter-bar { display: flex; align-items: center; gap: 10px; background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 10px 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.filter-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.filter-select { background: var(--s2); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: 13px; outline: none; cursor: pointer; font-family: inherit; transition: border-color 0.15s; }
+.filter-select:focus { border-color: var(--violet); }
+.filter-sep { width: 1px; height: 20px; background: var(--border); }
+
+/* ── MONTH TABS ── */
+.month-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.month-tab { padding: 7px 14px; border-radius: var(--radius-s); font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--s2); color: var(--muted); transition: all 0.15s; user-select: none; position: relative; }
+.month-tab:hover { border-color: var(--border2); color: var(--text); }
+.month-tab.active { background: var(--violet); border-color: var(--violet); color: #fff; box-shadow: 0 0 12px rgba(124,58,237,0.35); }
+.month-tab.has-data::after { content: ''; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+.month-tab.active::after { background: rgba(255,255,255,0.8); }
+
+/* ── TABLE ── */
+.table-card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.table-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); background: rgba(30,41,59,0.4); }
+.table-header-info h3 { font-size: 14px; font-weight: 600; }
+.table-header-info p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.table-header-stats { text-align: right; }
+.table-header-stats .stat-val { font-size: 20px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+.table-header-stats .stat-label { font-size: 11px; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; }
+thead th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 9px 16px; text-align: right; background: rgba(30,41,59,0.3); border-bottom: 1px solid var(--border); }
+thead th:first-child { text-align: left; }
+tbody td { padding: 10px 16px; font-size: 13px; text-align: right; border-bottom: 1px solid var(--border); }
+tbody td:first-child { text-align: left; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: rgba(255,255,255,0.02); }
+tbody tr.group-row td { background: rgba(30,41,59,0.5); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); padding: 7px 16px; border-bottom: 1px solid var(--border); }
+td.editable { cursor: pointer; }
+td.editable:hover { background: rgba(124,58,237,0.06) !important; }
+td.editable input { background: rgba(124,58,237,0.12); border: 1px solid var(--violet); color: var(--text); padding: 3px 8px; border-radius: 5px; font-size: 13px; width: 90px; text-align: right; outline: none; font-family: 'IBM Plex Mono', monospace; }
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.badge-savings { background: rgba(6,182,212,0.12); color: #22d3ee; border: 1px solid rgba(6,182,212,0.2); }
+.badge-needs   { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+.badge-wants   { background: rgba(124,58,237,0.12); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); }
+.mini-bar { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+.mini-track { width: 64px; height: 4px; background: var(--s3); border-radius: 2px; overflow: hidden; }
+.mini-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+.mini-pct { font-size: 10px; color: var(--muted); }
+.positive { color: var(--green); }
+.negative { color: var(--red); }
+.neutral  { color: var(--muted); }
+
+/* ── WEEKLY ── */
+.weekly-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+.week-card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; transition: border-color 0.2s, transform 0.2s; cursor: default; }
+.week-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.week-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+.week-amount { font-size: 22px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; line-height: 1; }
+.week-daily { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.week-track { margin-top: 12px; height: 3px; background: var(--s3); border-radius: 2px; overflow: hidden; }
+.week-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--s2); border: 1px solid var(--border2); color: var(--text); padding: 11px 16px; border-radius: var(--radius-s); font-size: 13px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); transform: translateY(60px); opacity: 0; transition: all 0.25s cubic-bezier(0.4,0,0.2,1); z-index: 100; max-width: 320px; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* ── MOBILE ── */
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.5); }
+  .main { margin-left: 0; }
+  .card-grid { grid-template-columns: 1fr 1fr; }
+  .chart-grid-main { grid-template-columns: 1fr; }
+  .chart-grid-2 { grid-template-columns: 1fr; }
+  .weekly-grid { grid-template-columns: 1fr 1fr; }
+  .page { padding: 16px; }
+  .topbar { padding: 12px 16px; }
+  .donut-wrap { flex-direction: column; }
+  .donut-canvas-wrap { width: 160px; }
+  .legend { max-height: 160px; }
+}
+@media (max-width: 480px) {
+  .card-grid { grid-template-columns: 1fr; }
+  .weekly-grid { grid-template-columns: 1fr; }
+  .month-tabs { gap: 4px; }
+  .month-tab { padding: 6px 10px; font-size: 11px; }
+  table { font-size: 12px; }
+  thead th, tbody td { padding: 8px 10px; }
+}
+
+/* Mobile menu button */
+.menu-btn { display: none; background: var(--s2); border: 1px solid var(--border); color: var(--muted2); padding: 8px; border-radius: var(--radius-s); cursor: pointer; }
+.menu-btn svg { width: 18px; height: 18px; display: block; }
+@media (max-width: 900px) { .menu-btn { display: flex; } }
+
+/* Overlay */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 49; }
+.overlay.show { display: block; }
+
+#importFile { display: none; }
+</style>
+</head>
+<body>
+<input type="file" id="importFile" accept=".json">
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<div class="layout">
+<!-- ══ SIDEBAR ══ -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">
+      <div class="brand-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <div class="brand-text">
+        <h2>Budget 2026</h2>
+        <p>Personal Finance</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-income">
+    <div class="income-label">Monthly Income</div>
+    <div class="income-value">£3,007</div>
+    <div class="income-sub">£2,867 budgeted · £140 flex</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Dashboard</div>
+    <div class="nav-item active" data-view="overview" onclick="navigate('overview',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Overview
+    </div>
+    <div class="nav-item" data-view="monthly" onclick="navigate('monthly',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Monthly Entry
+      <span class="nav-badge" id="badge-data">0</span>
+    </div>
+    <div class="nav-item" data-view="categories" onclick="navigate('categories',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Categories
+    </div>
+    <div class="nav-item" data-view="weekly" onclick="navigate('weekly',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Weekly View
+    </div>
+    <div class="nav-section-label">Budget Info</div>
+    <div class="nav-item" style="cursor:default;opacity:0.6;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Savings: £400/mo
+    </div>
+    <div class="nav-item" style="cursor:default;opacity:0.6;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      Needs: £300/mo
+    </div>
+    <div class="nav-item" style="cursor:default;opacity:0.6;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Wants: £2,167/mo
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="save-status">
+      <div class="save-dot" id="saveDot"></div>
+      <span id="saveStatusText">Loading…</span>
+    </div>
+    <div class="sidebar-actions">
+      <button class="side-btn" onclick="exportData()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button class="side-btn" onclick="document.getElementById('importFile').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="menu-btn" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="topbar-title">
+        <h1 id="topbarTitle">Overview</h1>
+        <p id="topbarSub">2026 Personal Finance Dashboard</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-ghost" onclick="navigate('monthly',document.querySelector('[data-view=monthly]'))">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span class="hide-mobile">Add Spending</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="page">
+
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div class="card-grid">
+        <div class="summary-card card-income">
+          <div class="card-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Annual Income</div>
+          <div class="card-value" style="color:var(--green)">£36,084</div>
+          <div class="card-sub">£3,007 per month</div>
+        </div>
+        <div class="summary-card card-budget">
+          <div class="card-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Annual Budget</div>
+          <div class="card-value" style="color:var(--cyan)">£34,404</div>
+          <div class="card-sub">£2,867 per month</div>
+        </div>
+        <div class="summary-card card-spent">
+          <div class="card-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4h22l-2 9H3z"/><circle cx="9" cy="20" r="1"/><circle cx="20" cy="20" r="1"/></svg>YTD Actual Spend</div>
+          <div class="card-value mono" id="card-spent" style="color:var(--amber)">£0.00</div>
+          <div class="card-sub" id="card-spent-sub">No months entered yet</div>
+        </div>
+        <div class="summary-card card-left">
+          <div class="card-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>YTD Remaining</div>
+          <div class="card-value mono" id="card-remaining" style="color:var(--purple)">£36,084</div>
+          <div class="card-sub">of income unspent</div>
+          <div class="pill pill-green" id="card-pill">On track</div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <span class="filter-label">Range:</span>
+        <select class="filter-select" id="filterFrom" onchange="redrawCharts()">
+          <option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option>
+          <option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option>
+          <option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option>
+          <option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option>
+        </select>
+        <span style="color:var(--muted);font-size:12px">→</span>
+        <select class="filter-select" id="filterTo" onchange="redrawCharts()">
+          <option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option>
+          <option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option>
+          <option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option>
+          <option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option>
+        </select>
+        <div class="filter-sep"></div>
+        <span class="filter-label">Group:</span>
+        <select class="filter-select" id="groupBy" onchange="redrawCharts()">
+          <option value="cat">Category</option>
+          <option value="type">Type</option>
+        </select>
+        <div class="filter-sep"></div>
+        <span class="filter-label">Show:</span>
+        <select class="filter-select" id="chartMode" onchange="redrawCharts()">
+          <option value="budget">Budget</option>
+          <option value="actual">Actual</option>
+        </select>
+      </div>
+
+      <div class="chart-grid-main">
+        <div class="chart-card">
+          <div class="chart-card-title">Monthly Budget vs Actual</div>
+          <div class="chart-card-sub">Dashed line = budget ceiling</div>
+          <canvas id="barChart" height="230"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Allocation Breakdown</div>
+          <div class="chart-card-sub">Category or type view</div>
+          <div class="donut-wrap">
+            <div class="donut-canvas-wrap">
+              <canvas id="donutChart" width="170" height="170"></canvas>
+              <div class="donut-center">
+                <div class="donut-center-val" id="donutVal">£2,867</div>
+                <div class="donut-center-sub">/month</div>
+              </div>
+            </div>
+            <div class="legend" id="donutLegend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-grid-2">
+        <div class="chart-card">
+          <div class="chart-card-title">Savings · Needs · Wants</div>
+          <div class="chart-card-sub">Budget vs actual by type</div>
+          <canvas id="typeChart" height="210"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Cumulative 2026 Spend</div>
+          <div class="chart-card-sub">Running total vs budget</div>
+          <canvas id="lineChart" height="210"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- MONTHLY -->
+    <div class="view" id="view-monthly">
+      <div class="month-tabs" id="monthTabs"></div>
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-header-info">
+            <h3 id="monthTitle">January 2026</h3>
+            <p>Tap any Actual cell to edit · Enter or Tab to confirm</p>
+          </div>
+          <div class="table-header-stats">
+            <div class="stat-label">Month Total</div>
+            <div class="stat-val mono" id="monthTotalDisplay" style="color:var(--purple)">£0.00</div>
+            <div class="stat-label" id="monthBudgetDisplay">Budget: £2,867.03</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:left;width:170px;">Category</th>
+              <th style="text-align:left;">Type</th>
+              <th>Budget</th>
+              <th>Actual</th>
+              <th>Variance</th>
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody id="monthBody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+        <button class="btn btn-ghost" onclick="clearCurrentMonth()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/></svg>
+          Clear Month
+        </button>
+        <button class="btn btn-green" onclick="copyPrevMonth()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy Prev Month
+        </button>
+      </div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="view" id="view-categories">
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-header-info">
+            <h3>All Categories — 2026 YTD</h3>
+            <p>Budget vs actual across all entered months</p>
+          </div>
+          <div id="catSummary" class="table-header-stats"></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:left;">Category</th>
+              <th style="text-align:left;">Type</th>
+              <th>Monthly Budget</th>
+              <th>YTD Budget</th>
+              <th>YTD Actual</th>
+              <th>Variance</th>
+              <th>Progress</th>
+            </tr>
+          </thead>
+          <tbody id="catBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- WEEKLY -->
+    <div class="view" id="view-weekly">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+        <span class="filter-label">Month:</span>
+        <select class="filter-select" id="weeklyMonthSel" onchange="renderWeekly()"></select>
+        <span class="filter-label" id="weeklyMonthTotal" style="color:var(--muted2)"></span>
+      </div>
+      <div class="weekly-grid" id="weeklyGrid"></div>
+      <div class="chart-card" style="margin-top:4px;">
+        <div class="chart-card-title">Estimated Weekly Distribution</div>
+        <div class="chart-card-sub">Spend spread across each week's days</div>
+        <canvas id="weeklyChart" height="200"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+// ══ DATA ══════════════════════════════════════════════════════════════════════
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const INCOME = 3007;
+const CATS = [
+  { name:'Savings',               type:'Savings', budget:400    },
+  { name:'Transportation & Lunch',type:'Needs',   budget:200    },
+  { name:'Petrol',                type:'Needs',   budget:100    },
+  { name:'Haircut',               type:'Wants',   budget:60     },
+  { name:'Fun / Leisure',         type:'Wants',   budget:520    },
+  { name:'Personal Training',     type:'Wants',   budget:90     },
+  { name:'Phone',                 type:'Wants',   budget:30     },
+  { name:'Car',                   type:'Wants',   budget:300    },
+  { name:'Amex',                  type:'Wants',   budget:108.51 },
+  { name:'Pet Insurance',         type:'Wants',   budget:100    },
+  { name:'Camera Instalment',     type:'Wants',   budget:100    },
+  { name:'Japan Spending',        type:'Wants',   budget:200    },
+  { name:'Japan Hotel Pot',       type:'Wants',   budget:293.50 },
+  { name:'Portugal',              type:'Wants',   budget:205    },
+  { name:'Frasers',               type:'Wants',   budget:55.02  },
+  { name:'Everyman Cinema',       type:'Wants',   budget:30     },
+  { name:'Very',                  type:'Wants',   budget:30     },
+  { name:'Mac',                   type:'Wants',   budget:45     },
+  { name:'Flex',                  type:'Wants',   budget:0      },
+];
+const COLORS = ['#22c55e','#06b6d4','#f59e0b','#818cf8','#ef4444','#ec4899','#38bdf8','#a3e635','#fb923c','#c084fc','#34d399','#fbbf24','#60a5fa','#f472b6','#4ade80','#e879f9','#2dd4bf','#facc15','#94a3b8'];
+const TYPE_COLORS = { Savings:'#06b6d4', Needs:'#22c55e', Wants:'#818cf8' };
+const TOTAL_BUDGET = CATS.reduce((s,c)=>s+c.budget,0);
+
+let spendData = Array(12).fill(null).map(()=>Array(CATS.length).fill(0));
+let currentView = 'overview';
+let activeMonth = new Date().getMonth();
+let saveTimer = null;
+
+// ══ SYNC ══════════════════════════════════════════════════════════════════════
+function setSaveStatus(state, msg) {
+  const dot = document.getElementById('saveDot');
+  const txt = document.getElementById('saveStatusText');
+  dot.className = 'save-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+  txt.textContent = msg;
+}
+
+async function loadFromServer() {
+  setSaveStatus('syncing', 'Loading…');
+  try {
+    const res = await fetch('/api/budget');
+    if (res.ok) {
+      const data = await res.json();
+      if (data) spendData = data;
+      setSaveStatus('ok', 'Synced with server');
+    } else { throw new Error(); }
+  } catch {
+    const ls = localStorage.getItem('budget2026');
+    if (ls) { spendData = JSON.parse(ls); setSaveStatus('error', 'Offline – local cache'); }
+    else setSaveStatus('error', 'Could not load data');
+  }
+}
+
+async function saveToServer() {
+  setSaveStatus('syncing', 'Saving…');
+  localStorage.setItem('budget2026', JSON.stringify(spendData));
+  try {
+    const res = await fetch('/api/budget', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(spendData),
+    });
+    if (res.ok) {
+      const now = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      setSaveStatus('ok', 'Saved at ' + now);
+    } else { throw new Error(); }
+  } catch {
+    setSaveStatus('error', 'Server unreachable – saved locally');
+  }
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveToServer, 800);
+}
+
+// Export / Import
+function exportData() {
+  const blob = new Blob([JSON.stringify({v:1,spend:spendData},null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'budget2026-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('Backup exported');
+}
+document.getElementById('importFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const p = JSON.parse(ev.target.result);
+      spendData = p.spend || p;
+      saveToServer();
+      refresh();
+      toast('Data imported successfully');
+    } catch { toast('Invalid file'); }
+  };
+  r.readAsText(f);
+  e.target.value = '';
+});
+
+// ══ HELPERS ══════════════════════════════════════════════════════════════════
+const fmt = n => '£'+Math.abs(n).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+const monthTotal = m => spendData[m].reduce((s,v)=>s+v,0);
+const catYTD = i => spendData.reduce((s,m)=>s+m[i],0);
+const hasData = m => spendData[m].some(v=>v>0);
+const monthsWithData = () => spendData.filter(m=>m.some(v=>v>0)).length;
+const filterRange = () => {
+  const f = parseInt(document.getElementById('filterFrom').value);
+  const t = parseInt(document.getElementById('filterTo').value);
+  return [Math.min(f,t), Math.max(f,t)];
+};
+
+let toastTimer;
+function toast(msg) {
+  clearTimeout(toastTimer);
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toast').classList.add('show');
+  toastTimer = setTimeout(()=>document.getElementById('toast').classList.remove('show'), 2800);
+}
+
+function refresh() {
+  if (currentView === 'overview')   { updateCards(); redrawCharts(); }
+  if (currentView === 'monthly')    { renderMonthTabs(); renderMonthTable(); }
+  if (currentView === 'categories') renderCatTable();
+  if (currentView === 'weekly')     renderWeekly();
+}
+
+// ══ MOBILE SIDEBAR ════════════════════════════════════════════════════════════
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+// ══ NAVIGATION ════════════════════════════════════════════════════════════════
+const PAGE_TITLES = {
+  overview:   ['Overview', '2026 Personal Finance Dashboard'],
+  monthly:    ['Monthly Entry', 'Tap any amount to edit it'],
+  categories: ['Categories', 'Year-to-date performance by category'],
+  weekly:     ['Weekly View', 'Spending broken into weekly estimates'],
+};
+function navigate(view, el) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  currentView = view;
+  const [t,s] = PAGE_TITLES[view];
+  document.getElementById('topbarTitle').textContent = t;
+  document.getElementById('topbarSub').textContent = s;
+  closeSidebar();
+  if (view === 'monthly')    { renderMonthTabs(); renderMonthTable(); }
+  if (view === 'categories') renderCatTable();
+  if (view === 'weekly')     { buildWeeklySel(); renderWeekly(); }
+  if (view === 'overview')   { updateCards(); redrawCharts(); }
+}
+
+// ══ CARDS ════════════════════════════════════════════════════════════════════
+function updateCards() {
+  const total = spendData.reduce((s,m)=>s+m.reduce((a,b)=>a+b,0),0);
+  const mwd = monthsWithData();
+  document.getElementById('card-spent').textContent = fmt(total);
+  document.getElementById('card-spent-sub').textContent = mwd ? mwd+' month'+(mwd>1?'s':'')+' entered' : 'No months entered yet';
+  document.getElementById('card-remaining').textContent = fmt(INCOME*12 - total);
+  document.getElementById('badge-data').textContent = mwd;
+  const pill = document.getElementById('card-pill');
+  const ytdB = TOTAL_BUDGET * Math.max(mwd,1);
+  if (!mwd) { pill.className='pill pill-amber'; pill.textContent='No data'; }
+  else if (total > ytdB) { pill.className='pill pill-red'; pill.textContent='Over budget'; }
+  else { pill.className='pill pill-green'; pill.textContent='On track'; }
+}
+
+// ══ CHARTS ════════════════════════════════════════════════════════════════════
+const charts = {};
+const SCALES = {
+  x: { ticks:{color:'#64748b',font:{family:'IBM Plex Sans',size:11}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{color:'rgba(255,255,255,0.06)'} },
+  y: { ticks:{color:'#64748b',font:{family:'IBM Plex Sans',size:11},callback:v=>'£'+v.toLocaleString()}, grid:{color:'rgba(255,255,255,0.06)'}, border:{color:'rgba(255,255,255,0.06)'}, beginAtZero:true }
+};
+const LEGEND = { labels:{color:'#64748b',font:{family:'IBM Plex Sans',size:11}} };
+const TIP_FMT = ctx => '  '+ctx.dataset.label+': '+fmt(ctx.raw);
+const destroy = id => { if(charts[id]){charts[id].destroy();delete charts[id];} };
+
+function buildBarChart() {
+  const [from,to] = filterRange();
+  const labels = MONTHS.slice(from,to+1);
+  const actuals = labels.map((_,i)=>monthTotal(from+i));
+  destroy('bar');
+  charts.bar = new Chart(document.getElementById('barChart'), {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:'Actual', data:actuals, backgroundColor:actuals.map(v=>v>TOTAL_BUDGET?'rgba(239,68,68,0.6)':'rgba(129,140,248,0.65)'), borderRadius:6, borderSkipped:false },
+      { type:'line', label:'Budget', data:labels.map(()=>TOTAL_BUDGET), borderColor:'#06b6d4', borderWidth:2, borderDash:[6,3], pointRadius:0, fill:false, tension:0 }
+    ]},
+    options:{ responsive:true, interaction:{intersect:false,mode:'index'}, plugins:{legend:LEGEND,tooltip:{callbacks:{label:TIP_FMT}}}, scales:SCALES }
+  });
+}
+
+function buildDonutChart() {
+  const groupBy = document.getElementById('groupBy').value;
+  const mode    = document.getElementById('chartMode').value;
+  let labels, data, colors;
+  if (groupBy==='type') {
+    const types=['Savings','Needs','Wants'];
+    labels=types; colors=types.map(t=>TYPE_COLORS[t]);
+    data = types.map(t => {
+      const idx=CATS.map((c,i)=>c.type===t?i:-1).filter(i=>i>=0);
+      return mode==='actual' ? spendData.reduce((s,m)=>s+idx.reduce((a,i)=>a+m[i],0),0)
+        : CATS.filter(c=>c.type===t).reduce((s,c)=>s+c.budget,0);
+    });
+  } else {
+    const vis=CATS.map((c,i)=>({...c,i})).filter(c=>c.budget>0);
+    labels=vis.map(c=>c.name); colors=vis.map((_,i)=>COLORS[i%COLORS.length]);
+    data=mode==='actual' ? vis.map(c=>catYTD(c.i)) : vis.map(c=>c.budget);
+  }
+  const total=data.reduce((s,v)=>s+v,0);
+  document.getElementById('donutVal').textContent=fmt(total);
+  destroy('donut');
+  charts.donut=new Chart(document.getElementById('donutChart'),{
+    type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2,borderColor:'#0f172a',hoverOffset:8}]},
+    options:{cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmt(ctx.raw)}`}}}}
+  });
+  document.getElementById('donutLegend').innerHTML=labels.map((l,i)=>`
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:${colors[i%colors.length]}"></div>
+      <span class="legend-name">${l}</span>
+      <span class="legend-val">${fmt(data[i])}</span>
+    </div>`).join('');
+}
+
+function buildTypeChart() {
+  const [from,to]=filterRange();
+  const types=['Savings','Needs','Wants'];
+  const colors=types.map(t=>TYPE_COLORS[t]);
+  const budgets=types.map(t=>CATS.filter(c=>c.type===t).reduce((s,c)=>s+c.budget,0)*(to-from+1));
+  const actuals=types.map(t=>{
+    const idx=CATS.map((c,i)=>c.type===t?i:-1).filter(i=>i>=0);
+    let sum=0; for(let m=from;m<=to;m++) idx.forEach(i=>sum+=spendData[m][i]); return sum;
+  });
+  destroy('type');
+  charts.type=new Chart(document.getElementById('typeChart'),{
+    type:'bar',
+    data:{labels:types,datasets:[
+      {label:'Budget',data:budgets,backgroundColor:colors.map(c=>c+'33'),borderColor:colors,borderWidth:2,borderRadius:6},
+      {label:'Actual',data:actuals,backgroundColor:colors.map(c=>c+'aa'),borderRadius:6}
+    ]},
+    options:{responsive:true,interaction:{intersect:false,mode:'index'},plugins:{legend:LEGEND,tooltip:{callbacks:{label:TIP_FMT}}},scales:SCALES}
+  });
+}
+
+function buildLineChart() {
+  const [from,to]=filterRange();
+  const labels=MONTHS.slice(from,to+1);
+  let cB=0,cA=0; const lB=[],lA=[];
+  for(let m=from;m<=to;m++){cB+=TOTAL_BUDGET;cA+=monthTotal(m);lB.push(cB);lA.push(cA);}
+  destroy('line');
+  charts.line=new Chart(document.getElementById('lineChart'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Budget',data:lB,borderColor:'#06b6d4',borderWidth:2,borderDash:[6,3],fill:false,pointRadius:3,tension:0.3},
+      {label:'Actual',data:lA,borderColor:'#818cf8',borderWidth:2,backgroundColor:'rgba(129,140,248,0.08)',fill:true,pointRadius:3,tension:0.3}
+    ]},
+    options:{responsive:true,interaction:{intersect:false,mode:'index'},plugins:{legend:LEGEND,tooltip:{callbacks:{label:TIP_FMT}}},scales:SCALES}
+  });
+}
+
+function redrawCharts() { updateCards(); buildBarChart(); buildDonutChart(); buildTypeChart(); buildLineChart(); }
+
+// ══ MONTHLY TABLE ════════════════════════════════════════════════════════════
+function renderMonthTabs() {
+  document.getElementById('monthTabs').innerHTML = MONTHS.map((m,i)=>`
+    <div class="month-tab ${i===activeMonth?'active':''} ${hasData(i)?'has-data':''}" onclick="selectMonth(${i})">${m}</div>
+  `).join('');
+}
+function selectMonth(m) { activeMonth=m; renderMonthTabs(); renderMonthTable(); }
+
+function renderMonthTable() {
+  const m=activeMonth;
+  document.getElementById('monthTitle').textContent = MONTHS[m]+' 2026';
+  const total=monthTotal(m), over=total>TOTAL_BUDGET;
+  document.getElementById('monthTotalDisplay').textContent=fmt(total);
+  document.getElementById('monthTotalDisplay').style.color=over?'var(--red)':'var(--purple)';
+  document.getElementById('monthBudgetDisplay').textContent='Budget: '+fmt(TOTAL_BUDGET);
+  let html='';
+  ['Savings','Needs','Wants'].forEach(type=>{
+    html+=`<tr class="group-row"><td colspan="6">${type}</td></tr>`;
+    CATS.forEach((cat,i)=>{
+      if(cat.type!==type) return;
+      const val=spendData[m][i], diff=cat.budget-val;
+      const pct=cat.budget>0?Math.min(val/cat.budget,1):0;
+      const ov=cat.budget>0&&val>cat.budget;
+      const bc=ov?'var(--red)':pct>0.85?'var(--amber)':'var(--green)';
+      html+=`<tr>
+        <td>${cat.name}</td>
+        <td><span class="badge badge-${type.toLowerCase()}">${type}</span></td>
+        <td class="mono">${fmt(cat.budget)}</td>
+        <td class="editable mono" onclick="editCell(this,${m},${i})">${val>0?fmt(val):'<span style="color:var(--muted)">—</span>'}</td>
+        <td class="mono ${cat.budget===0?'neutral':ov?'negative':'positive'}">${cat.budget===0?'—':ov?'-'+fmt(Math.abs(diff)):fmt(diff)}</td>
+        <td><div class="mini-bar"><div class="mini-track"><div class="mini-fill" style="width:${pct*100}%;background:${bc}"></div></div><span class="mini-pct">${cat.budget>0?Math.round(pct*100)+'%':'—'}</span></div></td>
+      </tr>`;
+    });
+  });
+  document.getElementById('monthBody').innerHTML=html;
+}
+
+function editCell(td,month,catIdx) {
+  if(td.querySelector('input')) return;
+  const cur=spendData[month][catIdx];
+  td.innerHTML=`<input type="number" min="0" step="0.01" value="${cur||''}" placeholder="0.00">`;
+  const inp=td.querySelector('input');
+  inp.focus(); inp.select();
+  const commit=()=>{
+    const v=parseFloat(inp.value)||0;
+    spendData[month][catIdx]=v;
+    scheduleSave();
+    renderMonthTable(); renderMonthTabs();
+    if(currentView==='overview') redrawCharts();
+    if(currentView==='categories') renderCatTable();
+    toast('Updated '+CATS[catIdx].name+' → '+fmt(v));
+  };
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();commit();}
+    if(e.key==='Escape') renderMonthTable();
+  });
+}
+
+function clearCurrentMonth() {
+  if(!confirm('Clear all data for '+MONTHS[activeMonth]+'?')) return;
+  spendData[activeMonth]=Array(CATS.length).fill(0);
+  scheduleSave(); renderMonthTable(); renderMonthTabs();
+  if(currentView==='overview') redrawCharts();
+  toast('Cleared '+MONTHS[activeMonth]);
+}
+function copyPrevMonth() {
+  const prev=(activeMonth+11)%12;
+  if(!hasData(prev)){toast('No data in '+MONTHS[prev]);return;}
+  if(!confirm('Copy '+MONTHS[prev]+' into '+MONTHS[activeMonth]+'?')) return;
+  spendData[activeMonth]=[...spendData[prev]];
+  scheduleSave(); renderMonthTable();
+  toast('Copied from '+MONTHS[prev]);
+}
+
+// ══ CATEGORIES ════════════════════════════════════════════════════════════════
+function renderCatTable() {
+  const mwd=monthsWithData();
+  let html='',totB=0,totA=0;
+  ['Savings','Needs','Wants'].forEach(type=>{
+    html+=`<tr class="group-row"><td colspan="7">${type}</td></tr>`;
+    CATS.forEach((cat,i)=>{
+      if(cat.type!==type) return;
+      const ytdB=cat.budget*mwd, ytdA=catYTD(i), diff=ytdB-ytdA;
+      const pct=ytdB>0?Math.min(ytdA/ytdB,1.5):0;
+      const ov=ytdA>ytdB&&ytdB>0;
+      const bc=ov?'var(--red)':pct>0.85?'var(--amber)':'var(--green)';
+      totB+=ytdB; totA+=ytdA;
+      html+=`<tr>
+        <td>${cat.name}</td>
+        <td><span class="badge badge-${type.toLowerCase()}">${type}</span></td>
+        <td class="mono">${fmt(cat.budget)}/mo</td>
+        <td class="mono">${mwd?fmt(ytdB):'—'}</td>
+        <td class="mono">${ytdA>0?fmt(ytdA):'<span style="color:var(--muted)">—</span>'}</td>
+        <td class="mono ${!mwd?'neutral':ov?'negative':'positive'}">${!mwd?'—':ov?'-'+fmt(Math.abs(diff)):fmt(diff)}</td>
+        <td><div class="mini-bar"><div class="mini-track" style="width:72px"><div class="mini-fill" style="width:${Math.min(pct,1)*100}%;background:${bc}"></div></div><span class="mini-pct">${ytdB>0&&mwd?Math.round(pct*100)+'%':'—'}</span></div></td>
+      </tr>`;
+    });
+  });
+  document.getElementById('catBody').innerHTML=html;
+  const ov=totA>totB;
+  document.getElementById('catSummary').innerHTML=`
+    <div class="stat-label">YTD Total</div>
+    <div class="stat-val mono" style="color:${ov?'var(--red)':'var(--purple)'}">${fmt(totA)}</div>
+    <div class="stat-label">Budget: ${mwd?fmt(totB):'—'}</div>`;
+}
+
+// ══ WEEKLY ════════════════════════════════════════════════════════════════════
+function buildWeeklySel() {
+  document.getElementById('weeklyMonthSel').innerHTML=MONTHS.map((m,i)=>`<option value="${i}" ${i===activeMonth?'selected':''}>${m} 2026</option>`).join('');
+}
+function renderWeekly() {
+  const m=parseInt(document.getElementById('weeklyMonthSel').value);
+  const total=monthTotal(m), days=new Date(2026,m+1,0).getDate();
+  const rate=total/days;
+  const wDays=[7,7,7,days-21];
+  const wAmts=wDays.map(d=>rate*d);
+  const wColors=['#818cf8','#06b6d4','#22c55e','#f59e0b'];
+  const maxW=Math.max(...wAmts,1);
+  document.getElementById('weeklyMonthTotal').textContent=`Total: ${fmt(total)} · ${fmt(rate)}/day`;
+  document.getElementById('weeklyGrid').innerHTML=wDays.map((d,i)=>`
+    <div class="week-card">
+      <div class="week-label" style="color:${wColors[i]}">Week ${i+1} · ${d} days</div>
+      <div class="week-amount" style="color:${wColors[i]}">${fmt(wAmts[i])}</div>
+      <div class="week-daily">${fmt(rate)}/day estimate</div>
+      <div class="week-track"><div class="week-fill" style="width:${(wAmts[i]/maxW)*100}%;background:${wColors[i]}"></div></div>
+    </div>`).join('');
+  destroy('weekly');
+  charts.weekly=new Chart(document.getElementById('weeklyChart'),{
+    type:'bar',
+    data:{labels:wDays.map((_,i)=>'Week '+(i+1)),datasets:[{label:'Estimated Spend',data:wAmts,backgroundColor:wColors.map(c=>c+'bb'),borderRadius:8,borderSkipped:false}]},
+    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'  '+fmt(ctx.raw)}}},scales:SCALES}
+  });
+}
+
+// ══ INIT ══════════════════════════════════════════════════════════════════════
+async function init() {
+  await loadFromServer();
+  document.getElementById('filterFrom').value = 0;
+  document.getElementById('filterTo').value   = Math.min(new Date().getMonth(), 11);
+  updateCards();
+  redrawCharts();
+}
+init();
+</script>
+</body>
+</html>

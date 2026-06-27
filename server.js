@@ -8,7 +8,7 @@ const app = express();
 const DB_FILE = path.join(__dirname, 'db.json');
 
 // ── Persistence ───────────────────────────────────────────
-const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null };
+const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, programCustomizations:{} };
 function readDB() {
   try { return { ...DB_DEFAULTS, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }; }
   catch { return { ...DB_DEFAULTS }; }
@@ -113,41 +113,41 @@ function getCategoryFromActivity(activity) {
 }
 
 const MARTIAL_ARTS_TEMPLATES = [
-  [ // Week A – technique focus
-    { day:1, activity:'Muay Thai – Technique',      dur:75, int:'medium' },
-    { day:2, activity:'Weight Training – Push',     dur:60, int:'high',   prog:'A' },
-    { day:3, activity:'Zone 2 Run',                  dur:45, int:'low'    },
-    { day:4, activity:'Muay Thai – Sparring',        dur:75, int:'high'   },
-    { day:5, activity:'Weight Training – Pull',     dur:60, int:'high',   prog:'B' },
-    { day:6, activity:'Muay Thai – Pad Work',        dur:75, int:'high'   },
-    { day:7, activity:'Rest & Recovery',             dur:0,  int:'low'    },
-  ],
-  [ // Week B – conditioning focus
-    { day:1, activity:'Weight Training – Legs',     dur:65, int:'high',   prog:'A' },
-    { day:2, activity:'Muay Thai – Conditioning',    dur:60, int:'high'   },
-    { day:3, activity:'Rest',                        dur:0,  int:'low'    },
-    { day:4, activity:'Interval Sprints',            dur:35, int:'high'   },
-    { day:5, activity:'Muay Thai – Technique',       dur:75, int:'medium' },
-    { day:6, activity:'Weight Training – Full Body', dur:60, int:'high',   prog:'B' },
-    { day:7, activity:'Rest',                        dur:0,  int:'low'    },
-  ],
-  [ // Week C – power focus
-    { day:1, activity:'Muay Thai – Heavy Bag',       dur:60, int:'high'   },
-    { day:2, activity:'Weight Training – Push',     dur:65, int:'high',   prog:'A' },
-    { day:3, activity:'Rowing',                      dur:40, int:'medium' },
-    { day:4, activity:'Muay Thai – Pad Work',        dur:75, int:'high'   },
+  [ // Week A – baseline (Mon/Fri gym, Tue/Thu Muay Thai, Wed run, Sat long session)
+    { day:1, activity:'Weight Training – Push',     dur:60, int:'high',   prog:'A' },
+    { day:2, activity:'Muay Thai – Technique',      dur:75, int:'medium'          },
+    { day:3, activity:'Zone 2 Run',                 dur:45, int:'low'             },
+    { day:4, activity:'Muay Thai – Sparring',       dur:75, int:'high'            },
     { day:5, activity:'Weight Training – Pull',     dur:65, int:'high',   prog:'B' },
-    { day:6, activity:'BJJ / Grappling',             dur:60, int:'high'   },
-    { day:7, activity:'Rest',                        dur:0,  int:'low'    },
+    { day:6, activity:'Muay Thai – Pad Work',       dur:90, int:'high'            },
+    { day:7, activity:'Rest & Recovery',            dur:0,  int:'low'             },
+  ],
+  [ // Week B – conditioning emphasis
+    { day:1, activity:'Weight Training – Legs',     dur:65, int:'high',   prog:'A' },
+    { day:2, activity:'Muay Thai – Conditioning',   dur:60, int:'high'            },
+    { day:3, activity:'Interval Sprints',           dur:35, int:'high'            },
+    { day:4, activity:'Muay Thai – Heavy Bag',      dur:75, int:'high'            },
+    { day:5, activity:'Weight Training – Push',     dur:65, int:'high',   prog:'B' },
+    { day:6, activity:'Muay Thai – Sparring',       dur:90, int:'high'            },
+    { day:7, activity:'Rest',                       dur:0,  int:'low'             },
+  ],
+  [ // Week C – volume/power
+    { day:1, activity:'Weight Training – Full Body',dur:70, int:'high',   prog:'A' },
+    { day:2, activity:'Muay Thai – Heavy Bag',      dur:60, int:'high'            },
+    { day:3, activity:'Running',                    dur:45, int:'medium'          },
+    { day:4, activity:'Muay Thai – Pad Work',       dur:75, int:'high'            },
+    { day:5, activity:'Weight Training – Pull',     dur:65, int:'high',   prog:'B' },
+    { day:6, activity:'Muay Thai – Pad Work',       dur:90, int:'high'            },
+    { day:7, activity:'Rest',                       dur:0,  int:'low'             },
   ],
   [ // Week D – deload
-    { day:1, activity:'Muay Thai – Shadow Boxing',   dur:45, int:'low'    },
-    { day:2, activity:'Weight Training – Full Body', dur:45, int:'low',   prog:'A' },
-    { day:3, activity:'Rest',                        dur:0,  int:'low'    },
-    { day:4, activity:'Zone 2 Run',                  dur:40, int:'low'    },
-    { day:5, activity:'Muay Thai – Technique',       dur:60, int:'low'    },
-    { day:6, activity:'Rest',                        dur:0,  int:'low'    },
-    { day:7, activity:'Rest',                        dur:0,  int:'low'    },
+    { day:1, activity:'Weight Training – Full Body',dur:45, int:'low',    prog:'A' },
+    { day:2, activity:'Muay Thai – Shadow Boxing',  dur:45, int:'low'             },
+    { day:3, activity:'Zone 2 Run',                 dur:40, int:'low'             },
+    { day:4, activity:'Muay Thai – Technique',      dur:60, int:'low'             },
+    { day:5, activity:'Weight Training – Full Body',dur:45, int:'low',    prog:'B' },
+    { day:6, activity:'Rest',                       dur:0,  int:'low'             },
+    { day:7, activity:'Rest & Recovery',            dur:0,  int:'low'             },
   ],
 ];
 
@@ -255,24 +255,24 @@ const MEALS = {
     { name:'Smoked Salmon & Eggs on Toast',       calories:420, protein:36, carbs:20, fat:20, easy:true,  must:['Eggs','Smoked salmon','Wholemeal bread'],nice:[],                                notes:'Scramble eggs, serve on toast with smoked salmon.' },
   ],
   snack: [
-    { name:'Protein Shake & Banana',    calories:280, protein:28, carbs:30, fat:3,  easy:true, must:['Banana'],                    nice:['Protein powder','Milk'],  notes:'Shake protein powder with milk and banana.' },
-    { name:'Oatcakes & Peanut Butter',  calories:230, protein:7,  carbs:28, fat:10, easy:true, must:[],                            nice:['Oatcakes','Peanut butter'],notes:'Spread peanut butter on oatcakes.' },
-    { name:'Apple & Cottage Cheese',    calories:185, protein:18, carbs:20, fat:3,  easy:true, must:['Apple','Cottage cheese'],    nice:[],                         notes:'Slice apple, serve with cottage cheese.' },
-    { name:'Greek Yogurt & Honey',      calories:190, protein:16, carbs:22, fat:4,  easy:true, must:['Greek yogurt'],              nice:['Honey'],                  notes:'Top yogurt with honey.' },
-    { name:'Mixed Nuts & Dried Fruit',  calories:210, protein:6,  carbs:20, fat:13, easy:true, must:[],                            nice:['Mixed nuts','Dried fruit'],notes:'Combine and eat.' },
-    { name:'Tuna & Oatcakes',           calories:200, protein:24, carbs:16, fat:4,  easy:true, must:['Tinned tuna'],               nice:['Oatcakes'],               notes:'Drain tuna, serve on oatcakes.' },
-    { name:'Hard-Boiled Eggs',          calories:155, protein:13, carbs:1,  fat:10, easy:true, must:['Eggs'],                      nice:[],                         notes:'Boil eggs 8 mins, cool and peel.' },
-    { name:'Rice Cakes & Cream Cheese', calories:175, protein:6,  carbs:26, fat:5,  easy:true, must:['Cream cheese','Cucumber'],   nice:['Rice cakes'],             notes:'Spread cream cheese, top with cucumber.' },
+    { name:'Protein Shake & Banana',       calories:280, protein:28, carbs:30, fat:3,  easy:true, must:['Banana'],                      nice:['Protein powder','Milk'],          notes:'Shake protein powder with milk and banana. Ideal post-training.' },
+    { name:'Mixed Nuts & Piece of Fruit',  calories:215, protein:6,  carbs:22, fat:13, easy:true, must:['Apple or banana'],              nice:['Mixed nuts'],                     notes:'Pre-pack in a bag the night before. Zero prep on the day.' },
+    { name:'Greek Yogurt & Honey',         calories:190, protein:16, carbs:22, fat:4,  easy:true, must:['Greek yogurt'],                 nice:['Honey'],                          notes:'Top yogurt with honey.' },
+    { name:'Oatcakes & Peanut Butter',     calories:230, protein:7,  carbs:28, fat:10, easy:true, must:[],                              nice:['Oatcakes','Peanut butter'],        notes:'Spread peanut butter on oatcakes.' },
+    { name:'Apple & Cottage Cheese',       calories:185, protein:18, carbs:20, fat:3,  easy:true, must:['Apple','Cottage cheese'],       nice:[],                                 notes:'Slice apple, serve with cottage cheese.' },
+    { name:'Tuna & Oatcakes',              calories:200, protein:24, carbs:16, fat:4,  easy:true, must:['Tinned tuna'],                  nice:['Oatcakes'],                       notes:'Drain tuna, serve on oatcakes.' },
+    { name:'Hard-Boiled Eggs',             calories:155, protein:13, carbs:1,  fat:10, easy:true, must:['Eggs'],                         nice:[],                                 notes:'Batch-boil 4–5 on Sunday, keep in the fridge all week.' },
+    { name:'Protein Bar',                  calories:220, protein:20, carbs:24, fat:6,  easy:true, must:[],                              nice:['Protein bars'],                    notes:'Keep one in your bag. Failsafe for days when nothing else is prepped.' },
   ],
   lunch: [
-    { name:'Tuna Mayo Jacket Potato',   calories:520, protein:38, carbs:62, fat:10, easy:true,  must:['Baking potato','Tinned tuna','Salad leaves'],  nice:['Light mayo'],   notes:'Microwave potato 8–10 mins, fill with tuna mayo, serve with salad.' },
-    { name:'Chicken & Sweetcorn Wrap',  calories:490, protein:40, carbs:48, fat:12, easy:true,  must:['Chicken breast','Wholemeal wraps'],             nice:['Sweetcorn','Light mayo'], notes:'Slice chicken, layer in wrap with sweetcorn and roll up.' },
-    { name:'Prawn & Avocado Roll',      calories:460, protein:28, carbs:44, fat:16, easy:true,  must:['Cooked prawns','Avocado','Bread roll'],         nice:[],               notes:'Mash avocado, spread on roll, top with prawns.' },
-    { name:'Chicken & Rice Salad',      calories:480, protein:42, carbs:50, fat:10, easy:true,  must:['Chicken breast','Cucumber','Tomatoes'],         nice:['Basmati rice','Light dressing'], notes:'Cook rice, cool, toss with chicken and veg.' },
-    { name:'Ham & Cheese Toastie',      calories:450, protein:30, carbs:42, fat:16, easy:true,  must:['Lean ham','Cheddar','Wholemeal bread'],         nice:[],               notes:'Layer ham and cheese, toast until golden.' },
-    { name:'Smoked Salmon Pasta Salad', calories:500, protein:34, carbs:54, fat:14, easy:false, must:['Smoked salmon','Cucumber'],                     nice:['Wholemeal pasta','Capers','Lemon'], notes:'Cook pasta, cool, toss with salmon and cucumber.',
+    { name:'Batch Chicken, Rice & Veg', calories:490, protein:44, carbs:50, fat:10, easy:true,  must:['Chicken breast','Broccoli or green beans'],    nice:['Basmati rice','Olive oil'],       notes:'Sunday batch cook. Portion into containers. Heat at work in 2 mins.' },
+    { name:'Salmon, Sweet Potato & Veg',calories:510, protein:40, carbs:46, fat:16, easy:true,  must:['Salmon fillet','Sweet potato','Spinach'],       nice:['Olive oil','Lemon'],              notes:'Bake Sunday, portion out. Eat cold or heated.' },
+    { name:'Chicken & Rice Salad',      calories:480, protein:42, carbs:50, fat:10, easy:true,  must:['Chicken breast','Cucumber','Tomatoes'],         nice:['Basmati rice','Light dressing'],  notes:'Batch-cooked chicken and rice, tossed with veg. Travels well.' },
+    { name:'Tuna Mayo Jacket Potato',   calories:520, protein:38, carbs:62, fat:10, easy:true,  must:['Baking potato','Tinned tuna','Salad leaves'],   nice:['Light mayo'],                     notes:'Microwave potato 8–10 mins, fill with tuna mayo, serve with salad.' },
+    { name:'Chicken & Sweetcorn Wrap',  calories:490, protein:40, carbs:48, fat:12, easy:true,  must:['Chicken breast','Wholemeal wraps'],             nice:['Sweetcorn','Light mayo'],         notes:'Slice batch chicken, layer in wrap with sweetcorn.' },
+    { name:'Smoked Salmon Pasta Salad', calories:500, protein:34, carbs:54, fat:14, easy:false, must:['Smoked salmon','Cucumber'],                     nice:['Wholemeal pasta','Capers','Lemon'], notes:'Cook pasta Sunday, keep in fridge. Toss with salmon and cucumber.',
       recipe:['Cook pasta, drain and rinse cold.','Tear salmon, dice cucumber.','Toss with lemon juice and olive oil.','Season and serve.'] },
-    { name:'Lentil & Vegetable Soup',   calories:380, protein:22, carbs:52, fat:6,  easy:true,  must:['Carrot','Onion','Crusty bread'],                nice:['Tinned lentils','Vegetable stock'], notes:'Fry veg, add lentils and stock, simmer 15 mins.' },
+    { name:'Lentil & Vegetable Soup',   calories:380, protein:22, carbs:52, fat:6,  easy:true,  must:['Carrot','Onion','Crusty bread'],                nice:['Tinned lentils','Vegetable stock'], notes:'Batch on Sunday, portion for 3 days. Reheat in 2 mins.' },
   ],
   dinner: [
     { name:'Chicken Traybake with Veg',             calories:520, protein:46, carbs:38, fat:14, easy:true,  must:['Chicken thighs','Potatoes','Courgette','Red pepper'],  nice:['Smoked paprika','Olive oil'],   notes:'Toss with oil and paprika, roast at 200°C for 40 mins.' },
@@ -365,6 +365,21 @@ const PROGRAMS = [
     ],
   },
 ];
+
+function getMergedPrograms(db) {
+  const c = db.programCustomizations || {};
+  return PROGRAMS.map(plan => {
+    const pc = c[plan.id] || {};
+    const renames = pc.renames || {};
+    const additions = pc.additions || [];
+    const removals = new Set(pc.removals || []);
+    const exercises = plan.exercises
+      .filter(e => !removals.has(e.name))
+      .map(e => renames[e.name] ? { ...e, name: renames[e.name] } : e)
+      .concat(additions.map(e => ({ ...e, _custom: true })));
+    return { ...plan, exercises };
+  });
+}
 
 function localToday() { return new Date().toLocaleDateString('en-CA'); }
 
@@ -463,16 +478,13 @@ app.get('/api/exercises/recent-weights', (_req, res) => {
 app.get('/api/exercise-history', (_req, res) => {
   const db = readDB();
   const history = {};
-  // Collect all unique exercise names from programs
-  PROGRAMS.forEach(p => p.exercises.forEach(e => {
+  getMergedPrograms(db).forEach(p => p.exercises.forEach(e => {
     if (!history[e.name]) history[e.name] = { plan: p.id, meta: e, logs: [] };
   }));
-  // Attach logged entries
   db.exercises.forEach(entry => {
     const key = Object.keys(history).find(k => k.toLowerCase() === entry.name.toLowerCase());
     if (key) history[key].logs.push(entry);
   });
-  // Sort logs newest first
   Object.values(history).forEach(h => h.logs.sort((a,b) => b.date.localeCompare(a.date)));
   res.json(history);
 });
@@ -495,15 +507,78 @@ app.post('/api/exercise-log', (req, res) => {
   res.json(entry);
 });
 
-// Programs from Google Sheets
-app.get('/api/programs', (_req, res) => res.json(PROGRAMS));
+app.get('/api/programs', (_req, res) => {
+  const db = readDB();
+  res.json(getMergedPrograms(db));
+});
+
+app.patch('/api/programs/:planId/exercises/rename', (req, res) => {
+  const { planId } = req.params;
+  const { oldName, newName } = req.body;
+  if (!oldName?.trim() || !newName?.trim()) return res.status(400).json({ error: 'oldName and newName required' });
+  const db = readDB();
+  if (!db.programCustomizations) db.programCustomizations = {};
+  if (!db.programCustomizations[planId]) db.programCustomizations[planId] = {};
+  const pc = db.programCustomizations[planId];
+  if (!pc.renames) pc.renames = {};
+  // Find base name even if oldName is already a renamed exercise
+  const baseKey = Object.keys(pc.renames).find(k => pc.renames[k] === oldName) || oldName;
+  pc.renames[baseKey] = newName.trim();
+  // Rename all existing exercise log records
+  db.exercises.forEach(e => {
+    if (e.name.toLowerCase() === oldName.toLowerCase()) e.name = newName.trim();
+  });
+  // Also rename custom additions
+  if (pc.additions) pc.additions.forEach(e => {
+    if (e.name === oldName) e.name = newName.trim();
+  });
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/programs/:planId/exercises', (req, res) => {
+  const { planId } = req.params;
+  const { name, sets=3, reps='8-12', rest=60, rpe='' } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+  const db = readDB();
+  if (!db.programCustomizations) db.programCustomizations = {};
+  if (!db.programCustomizations[planId]) db.programCustomizations[planId] = {};
+  if (!db.programCustomizations[planId].additions) db.programCustomizations[planId].additions = [];
+  db.programCustomizations[planId].additions.push({ name: name.trim(), sets: +sets, reps, rest: +rest, rpe });
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.delete('/api/programs/:planId/exercises/:name', (req, res) => {
+  const { planId } = req.params;
+  const name = decodeURIComponent(req.params.name);
+  const db = readDB();
+  if (!db.programCustomizations) db.programCustomizations = {};
+  if (!db.programCustomizations[planId]) db.programCustomizations[planId] = {};
+  const pc = db.programCustomizations[planId];
+  // If it's a custom addition, remove it
+  if (pc.additions) {
+    const idx = pc.additions.findIndex(e => e.name === name);
+    if (idx !== -1) { pc.additions.splice(idx, 1); writeDB(db); return res.json({ ok: true }); }
+  }
+  // Otherwise hide the base exercise
+  if (!pc.removals) pc.removals = [];
+  const renames = pc.renames || {};
+  const baseKey = Object.keys(renames).find(k => renames[k] === name) || name;
+  if (!pc.removals.includes(baseKey)) pc.removals.push(baseKey);
+  writeDB(db);
+  res.json({ ok: true });
+});
 
 // ── Weight ────────────────────────────────────────────────
 app.post('/api/weight', (req, res) => {
-  const { weight, unit='lbs', note, date } = req.body;
+  const { weight, unit='lbs', note, date, bodyFat, muscleMass, skeletalMuscleMass } = req.body;
   if (!weight) return res.status(400).json({ error: 'weight required' });
   const db = readDB();
   const entry = { id: nextId(db.weights), weight: +weight, unit, note: note||null, date: date||localToday(), created_at: new Date().toISOString() };
+  if (bodyFat != null && !isNaN(+bodyFat))           entry.bodyFat = +bodyFat;
+  if (muscleMass != null && !isNaN(+muscleMass))     entry.muscleMass = +muscleMass;
+  if (skeletalMuscleMass != null && !isNaN(+skeletalMuscleMass)) entry.skeletalMuscleMass = +skeletalMuscleMass;
   db.weights.push(entry);
   writeDB(db);
   res.json(entry);
@@ -838,6 +913,19 @@ function getLocalIP() {
   }
   return 'localhost';
 }
+
+// ── Budget API ────────────────────────────────────────────
+app.get('/api/budget', (req, res) => {
+  const db = readDB();
+  res.json(db.budget2026 || null);
+});
+
+app.post('/api/budget', (req, res) => {
+  const db = readDB();
+  db.budget2026 = req.body;
+  writeDB(db);
+  res.json({ ok: true });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
