@@ -94,6 +94,41 @@
     <div id="view-settings"  class="view hidden"></div>
   </main>
 
+  <!-- Edit Workout Modal -->
+  <div id="edit-workout-overlay" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.7)" onclick="closeEditWorkout()"></div>
+  <div id="edit-workout-modal" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:301;background:#141417;border-radius:20px 20px 0 0;padding:24px 20px 44px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.32,0.72,0,1);max-height:85vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-family:'Space Grotesk';font-size:16px;font-weight:700;color:#dcdce0;letter-spacing:.04em">Edit Workout</div>
+      <button onclick="closeEditWorkout()" style="background:none;border:none;cursor:pointer;color:#6c6c72;font-size:22px;line-height:1;padding:4px">&times;</button>
+    </div>
+    <input type="hidden" id="edit-workout-id" />
+    <div class="edit-field">
+      <label class="edit-label">Activity</label>
+      <input id="edit-activity" type="text" class="edit-input" placeholder="e.g. Muay Thai" />
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">Duration (minutes)</label>
+      <input id="edit-duration" type="number" class="edit-input" min="1" placeholder="e.g. 60" />
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">Intensity</label>
+      <select id="edit-intensity" class="edit-input">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">Date</label>
+      <input id="edit-date" type="date" class="edit-input" />
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">Notes</label>
+      <textarea id="edit-raw-text" class="edit-input" rows="3" placeholder="Original workout notes"></textarea>
+    </div>
+    <button onclick="saveEditWorkout()" class="btn" style="width:100%;margin-top:8px;background:var(--mint);color:#06120c;font-weight:700;font-size:15px;padding:14px">Save Changes</button>
+  </div>
+
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

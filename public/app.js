@@ -17,6 +17,7 @@ const api = {
   async post(p,b)   { const r=await fetch(p,{method:'POST',  headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); if(!r.ok) throw new Error(); return r.json(); },
   async del(p)      { const r=await fetch(p,{method:'DELETE'}); if(!r.ok) throw new Error(); return r.json(); },
   async patch(p,b)  { const r=await fetch(p,{method:'PATCH',  headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); if(!r.ok) throw new Error(); return r.json(); },
+  async put(p,b)    { const r=await fetch(p,{method:'PUT',    headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); if(!r.ok) throw new Error(); return r.json(); },
 };
 
 // ── NLP ───────────────────────────────────────────────────
@@ -751,9 +752,14 @@ function workoutCard(w, showDelete, s) {
           <div id="ex-logger-${w.id}" class="ex-logger hidden"></div>
         ` : ''}
       </div>
-      ${showDelete ? `<button class="delete-btn" onclick="deleteWorkout(${w.id})" title="Delete">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-      </button>` : ''}
+      ${showDelete ? `<div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+        <button class="delete-btn" onclick="openEditWorkout(${w.id},'${escHtml(w.activity||'')}',${w.duration_mins||'null'},'${w.intensity||'medium'}','${w.date||''}',${JSON.stringify(escHtml(w.raw_text||''))})" title="Edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="delete-btn" onclick="deleteWorkout(${w.id})" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>` : ''}
     </div>
   `;
 }
@@ -1027,6 +1033,45 @@ async function lookupExercise() {
       }).join('')}
     </div>
   `;
+}
+
+function openEditWorkout(id, activity, duration, intensity, date, rawText) {
+  document.getElementById('edit-workout-id').value = id;
+  document.getElementById('edit-activity').value = activity;
+  document.getElementById('edit-duration').value = duration || '';
+  document.getElementById('edit-intensity').value = intensity || 'medium';
+  document.getElementById('edit-date').value = date || '';
+  document.getElementById('edit-raw-text').value = rawText || '';
+  const overlay = document.getElementById('edit-workout-overlay');
+  const modal = document.getElementById('edit-workout-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeEditWorkout() {
+  const modal = document.getElementById('edit-workout-modal');
+  const overlay = document.getElementById('edit-workout-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function saveEditWorkout() {
+  const id = document.getElementById('edit-workout-id').value;
+  const activity = document.getElementById('edit-activity').value.trim();
+  const duration_mins = document.getElementById('edit-duration').value;
+  const intensity = document.getElementById('edit-intensity').value;
+  const date = document.getElementById('edit-date').value;
+  const raw_text = document.getElementById('edit-raw-text').value.trim();
+  const updated = await api.put(`/api/workouts/${id}`, { activity, duration_mins: duration_mins ? +duration_mins : null, intensity, date, raw_text });
+  closeEditWorkout();
+  const card = document.getElementById(`we-${id}`);
+  if (card) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = workoutCard(updated, true, Settings.get());
+    card.replaceWith(tmp.firstElementChild);
+  }
+  toast('Workout updated');
 }
 
 async function deleteWorkout(id) {
