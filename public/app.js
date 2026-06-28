@@ -135,6 +135,32 @@ function updateNavPill(view) {
   pill.classList.add('visible');
 }
 
+function applySuppStyle(key, checked) {
+  const icon = document.getElementById(`supp-icon-${key}`);
+  const label = document.getElementById(`supp-label-${key}`);
+  if (!icon) return;
+  if (checked) {
+    icon.style.background = '#00ff88';
+    icon.style.borderColor = '#00ff88';
+    if (label) label.style.borderColor = '#00ff8840';
+  } else {
+    icon.style.background = 'transparent';
+    icon.style.borderColor = '#ffffff1f';
+    if (label) label.style.borderColor = '#ffffff0d';
+  }
+}
+
+async function toggleSupp(key, checked) {
+  applySuppStyle(key, checked);
+  const state = {};
+  ['creatine','protein','tablets'].forEach(k => {
+    const el = document.getElementById(`supp-${k}`);
+    state[k] = el ? el.checked : false;
+  });
+  state[key] = checked;
+  await api.post(`/api/supplements/${todayStr()}`, state);
+}
+
 function toast(msg, type='success') {
   const el=document.getElementById('toast');
   el.textContent=msg; el.className=`show ${type}`;
@@ -273,6 +299,19 @@ async function renderDashboard() {
         </div>
       </div>
     </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title" style="margin-bottom:16px">Daily Supplements</div>
+      <div id="supp-checks" style="display:flex;flex-direction:column;gap:12px">
+        ${['creatine','protein','tablets'].map(s => `
+          <label id="supp-label-${s}" style="display:flex;align-items:center;gap:14px;cursor:pointer;padding:14px 16px;background:#0b0b0d;border:1px solid #ffffff0d;border-radius:11px;transition:border-color .15s" onmouseenter="this.style.borderColor='#ffffff14'" onmouseleave="this.style.borderColor='#ffffff0d'">
+            <input type="checkbox" id="supp-${s}" onchange="toggleSupp('${s}',this.checked)" style="display:none" />
+            <div id="supp-icon-${s}" style="width:22px;height:22px;border-radius:6px;border:1.5px solid #ffffff1f;background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5L5 9.5L11 3.5" stroke="#06120c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <span style="font-size:14.5px;font-weight:600;color:#dcdce0;text-transform:capitalize">${s === 'protein' ? 'Protein Shake' : s.charAt(0).toUpperCase() + s.slice(1)}</span>
+          </label>`).join('')}
+      </div>
+    </div>
     <div class="card"><div class="card-title">Recent Workouts</div><div id="dash-workouts">Loading…</div></div>
   `;
 
@@ -282,6 +321,13 @@ async function renderDashboard() {
     if (ring && calPct > 0) {
       setTimeout(() => { ring.style.strokeDashoffset = ring.dataset.offset; }, 80);
     }
+  });
+
+  // Load supplements state for today
+  const todaySupps = await api.get(`/api/supplements/${todayStr()}`);
+  ['creatine','protein','tablets'].forEach(k => {
+    const cb = document.getElementById(`supp-${k}`);
+    if (cb) { cb.checked = !!todaySupps[k]; applySuppStyle(k, !!todaySupps[k]); }
   });
 
   const recent = await api.get('/api/workouts?limit=4');
@@ -1056,9 +1102,13 @@ async function renderWeight() {
       </div>
       <div class="card">
         <div class="card-title">Log Weight</div>
-        <div class="form-row" style="margin-bottom:12px">
-          <div class="form-group" style="margin-bottom:0"><label class="form-label">Weight (${s.weightUnit})</label><input class="form-input" id="w-weight" type="number" step="0.1" placeholder="e.g. 175.2" /></div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Weight (${s.weightUnit})</label><input class="form-input" id="w-weight" type="number" step="0.1" placeholder="e.g. 80.5" /></div>
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Note</label><input class="form-input" id="w-note" placeholder="fasted, PM…" /></div>
+        </div>
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Body Fat %</label><input class="form-input" id="w-bf" type="number" step="0.1" placeholder="e.g. 18.5" /></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Muscle Mass (${s.weightUnit})</label><input class="form-input" id="w-mm" type="number" step="0.1" placeholder="e.g. 65.2" /></div>
         </div>
         <button class="btn btn-primary btn-sm" id="w-save">Save Entry</button>
       </div>
@@ -1072,7 +1122,14 @@ async function renderWeight() {
       <div class="weight-entries">
         ${entries.length?[...entries].reverse().slice(0,20).map(e=>`
           <div class="weight-row" id="wr-${e.id}">
-            <div><div class="weight-row-val">${e.weight} ${e.unit}</div>${e.note?`<div style="font-size:12px;color:var(--text-2)">${escHtml(e.note)}</div>`:''}</div>
+            <div>
+              <div class="weight-row-val">${e.weight} ${e.unit}</div>
+              <div style="font-size:12px;color:#6c6c72;margin-top:2px;display:flex;gap:10px">
+                ${e.bodyFat != null ? `<span>🔥 ${e.bodyFat}% fat</span>` : ''}
+                ${e.muscleMass != null ? `<span>💪 ${e.muscleMass}${e.unit} muscle</span>` : ''}
+                ${e.note ? `<span>${escHtml(e.note)}</span>` : ''}
+              </div>
+            </div>
             <div style="display:flex;align-items:center;gap:12px">
               <div class="weight-row-date">${fmtDate(e.date)}</div>
               <button class="weight-row-del" onclick="deleteWeight(${e.id})" title="Delete">
@@ -1092,7 +1149,12 @@ async function renderWeight() {
 async function saveWeight() {
   const w = parseFloat(document.getElementById('w-weight')?.value);
   if (!w||isNaN(w)) { toast('Enter a valid weight','error'); return; }
-  await api.post('/api/weight', {weight:w, unit:Settings.get().weightUnit, note:document.getElementById('w-note')?.value||''});
+  const bf = parseFloat(document.getElementById('w-bf')?.value);
+  const mm = parseFloat(document.getElementById('w-mm')?.value);
+  const body = { weight:w, unit:Settings.get().weightUnit, note:document.getElementById('w-note')?.value||'' };
+  if (!isNaN(bf)) body.bodyFat = bf;
+  if (!isNaN(mm)) body.muscleMass = mm;
+  await api.post('/api/weight', body);
   toast('Weight saved!');
   renderWeight();
 }

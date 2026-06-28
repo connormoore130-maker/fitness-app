@@ -8,7 +8,7 @@ const app = express();
 const DB_FILE = process.env.DB_PATH || path.join(__dirname, 'db.json');
 
 // ── Persistence ───────────────────────────────────────────
-const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, programCustomizations:{} };
+const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, programCustomizations:{}, supplements:{} };
 function readDB() {
   try { return { ...DB_DEFAULTS, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }; }
   catch { return { ...DB_DEFAULTS }; }
@@ -593,6 +593,20 @@ app.delete('/api/weight/:id', (req, res) => {
   db.weights = db.weights.filter(w => w.id !== +req.params.id);
   writeDB(db);
   res.json({ ok:true });
+});
+
+// ── Supplements ───────────────────────────────────────────
+app.get('/api/supplements/:date', (req, res) => {
+  const db = readDB();
+  res.json(db.supplements[req.params.date] || { creatine: false, protein: false, tablets: false });
+});
+
+app.post('/api/supplements/:date', (req, res) => {
+  const db = readDB();
+  if (!db.supplements) db.supplements = {};
+  db.supplements[req.params.date] = { creatine: !!req.body.creatine, protein: !!req.body.protein, tablets: !!req.body.tablets };
+  writeDB(db);
+  res.json(db.supplements[req.params.date]);
 });
 
 // ── Nutrition ─────────────────────────────────────────────
