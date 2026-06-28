@@ -417,6 +417,22 @@ app.get('/api/workouts', (req, res) => {
     : db.workouts.slice().reverse().slice(0, +limit));
 });
 
+app.put('/api/workouts/:id', (req, res) => {
+  const db = readDB();
+  const idx = db.workouts.findIndex(w => w.id === +req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  const { activity, duration_mins, intensity, category, date, raw_text } = req.body;
+  const w = db.workouts[idx];
+  if (activity !== undefined)     w.activity = activity;
+  if (duration_mins !== undefined) w.duration_mins = duration_mins ? +duration_mins : null;
+  if (intensity !== undefined)    w.intensity = intensity;
+  if (category !== undefined)     w.category = category;
+  if (date !== undefined)         w.date = date;
+  if (raw_text !== undefined)     w.raw_text = raw_text;
+  writeDB(db);
+  res.json(w);
+});
+
 app.delete('/api/workouts/:id', (req, res) => {
   const db = readDB();
   db.workouts = db.workouts.filter(w => w.id !== +req.params.id);
