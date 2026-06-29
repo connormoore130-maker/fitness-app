@@ -7,13 +7,19 @@ const cron = require('node-cron');
 const app = express();
 const DB_FILE = process.env.DB_PATH || path.join(__dirname, 'db.json');
 
+// Ensure the directory for DB_FILE exists
+try { fs.mkdirSync(path.dirname(DB_FILE), { recursive: true }); } catch {}
+
 // ── Persistence ───────────────────────────────────────────
 const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, programCustomizations:{} };
 function readDB() {
   try { return { ...DB_DEFAULTS, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }; }
   catch { return { ...DB_DEFAULTS }; }
 }
-function writeDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data)); }
+function writeDB(data) {
+  try { fs.writeFileSync(DB_FILE, JSON.stringify(data)); }
+  catch (e) { console.error('writeDB failed:', e.message); }
+}
 function nextId(arr) { return arr.length === 0 ? 1 : Math.max(...arr.map(i => i.id)) + 1; }
 
 // ── NLP parser ────────────────────────────────────────────
