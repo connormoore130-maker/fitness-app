@@ -198,7 +198,7 @@ function getWeekStart(date) {
   return d.toISOString().split('T')[0];
 }
 
-function generateAdaptivePlan(weekStart, db) {
+function generateAdaptivePlan(weekStart, db, forceType) {
   const cutoff = new Date(weekStart);
   cutoff.setDate(cutoff.getDate() - 14);
   const recent = db.workouts.filter(w => w.date >= cutoff.toISOString().split('T')[0]);
@@ -211,9 +211,11 @@ function generateAdaptivePlan(weekStart, db) {
   const strRatio = total > 0 ? (cats['strength']||0) / total : 0;
 
   const rotation = getWeekRotation(weekStart);
-  const template = maRatio > 0.35 ? MARTIAL_ARTS_TEMPLATES[rotation]
+  const template = forceType === 'strength' ? STRENGTH_TEMPLATES[rotation]
+    : forceType === 'martial-arts' ? MARTIAL_ARTS_TEMPLATES[rotation]
+    : maRatio > 0.35 ? MARTIAL_ARTS_TEMPLATES[rotation]
     : strRatio > 0.35 ? STRENGTH_TEMPLATES[rotation]
-    : MARTIAL_ARTS_TEMPLATES[rotation]; // default to martial arts (matches user profile)
+    : MARTIAL_ARTS_TEMPLATES[rotation];
 
   // Check last week's completion to scale intensity
   const lastWeekStart = new Date(weekStart);
@@ -695,8 +697,28 @@ app.post('/api/plan/regenerate', (req, res) => {
   const weekStart = getWeekStart(new Date());
   db.trainingPlan = db.trainingPlan.filter(p => p.week_start !== weekStart);
   writeDB(db);
-  const plan = generateAdaptivePlan(weekStart, readDB());
+  const plan = generateAdaptivePlan(weekStart, readDB(), req.body.type);
   res.json(plan);
+});
+
+// ── Data export / import ──────────────────────────────────
+app.get('/api/export', (_req, res) => {
+  const db = readDB();
+  res.setHeader('Content-Disposition', `attachment; filename="fitness-backup-${new Date().toISOString().split('T')[0]}.json"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.send(JSON.stringify(db, null, 2));
+});
+
+app.post('/api/import', (req, res) => {
+  try {
+    const incoming = req.body;
+    if (!incoming || typeof incoming !== 'object') return res.status(400).json({ error: 'invalid data' });
+    const merged = { ...DB_DEFAULTS, ...incoming };
+    writeDB(merged);
+    res.json({ ok: true, counts: { workouts: merged.workouts.length, exercises: merged.exercises.length, weights: merged.weights.length } });
+  } catch (e) {
+    res.status(400).json({ error: 'failed to import' });
+  }
 });
 
 // ── Meal Plan ─────────────────────────────────────────────

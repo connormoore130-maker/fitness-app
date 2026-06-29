@@ -274,6 +274,13 @@ async function renderDashboard() {
         </div>
       </div>
     </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="card-title" style="margin-bottom:0">This Week's Plan</div>
+        <button class="btn btn-sm" style="font-size:12px;padding:5px 12px;background:var(--surface);border:1px solid var(--border)" onclick="openNewPlanModal()">New Plan</button>
+      </div>
+      <div id="dash-weekly-plan">Loading…</div>
+    </div>
     <div class="card"><div class="card-title">Recent Workouts</div><div id="dash-workouts">Loading…</div></div>
   `;
 
@@ -285,7 +292,10 @@ async function renderDashboard() {
     }
   });
 
-  const recent = await api.get('/api/workouts?limit=4');
+  const [recent, weekPlan] = await Promise.all([
+    api.get('/api/workouts?limit=4'),
+    Promise.resolve(plan),
+  ]);
   document.getElementById('dash-workouts').innerHTML = recent.length
     ? `<div class="workout-list">${recent.map(w=>workoutCard(w,false)).join('')}</div>`
     : `<div class="empty-state">
@@ -296,6 +306,45 @@ async function renderDashboard() {
           <button class="btn btn-ghost btn-sm" onclick="navigate('lifts')">Start Lifting</button>
         </div>
        </div>`;
+
+  const DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const planEl = document.getElementById('dash-weekly-plan');
+  if (planEl) {
+    planEl.innerHTML = weekPlan.length ? weekPlan.map(p => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="width:36px;font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;flex-shrink:0">${DAYS_SHORT[p.day_of_week-1]||''}</div>
+        <div style="font-size:15px;flex-shrink:0">${getActivityEmoji(p.activity)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:#dcdce0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.activity}</div>
+          <div style="font-size:11px;color:var(--text-3)">${p.duration_mins>0?`${p.duration_mins} min · `:''}${p.intensity}</div>
+        </div>
+        ${p.completed ? '<div style="color:var(--mint);font-size:13px;font-weight:700">✓</div>' : ''}
+      </div>
+    `).join('') : '<p style="color:var(--text-3);font-size:13px">No plan for this week yet.</p>';
+  }
+}
+
+function openNewPlanModal() {
+  const overlay = document.getElementById('new-plan-overlay');
+  const modal = document.getElementById('new-plan-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeNewPlanModal() {
+  const modal = document.getElementById('new-plan-modal');
+  const overlay = document.getElementById('new-plan-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function generateNewPlan(type) {
+  closeNewPlanModal();
+  toast('Generating new plan…');
+  await api.post('/api/plan/regenerate', { type });
+  toast('New plan ready!');
+  renderDashboard();
 }
 
 // ── Streak ────────────────────────────────────────────────
@@ -1696,6 +1745,19 @@ function renderSettings() {
       <button class="btn btn-primary" id="s-save">Save Settings</button>
       <div class="divider"></div>
       <div class="settings-section">
+        <div class="settings-title">Data Backup</div>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:14px;line-height:1.6">
+          Download all your workouts, weights, nutrition and exercises as a JSON file. Use Import to restore from a backup.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="exportData()">Export Backup</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">Import Backup</button>
+        </div>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)" />
+        <div id="s-backup-status" style="font-size:12px;color:var(--text-3);margin-top:10px"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="settings-section">
         <div class="settings-title">Reminders</div>
         <p style="font-size:13px;color:var(--text-2);margin-bottom:14px;line-height:1.6">
           Daily push notifications: morning workout reminder at 8am, and an evening nudge at 9pm if you haven't logged yet.
@@ -1741,6 +1803,28 @@ function renderSettings() {
     await api.post('/api/push/test', {});
     toast('Test notification sent!');
   });
+}
+
+function exportData() {
+  window.location.href = '/api/export';
+  toast('Downloading backup…');
+}
+
+async function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('s-backup-status');
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const result = await api.post('/api/import', data);
+    statusEl.textContent = `✓ Imported: ${result.counts.workouts} workouts, ${result.counts.weights} weights, ${result.counts.exercises} exercises`;
+    toast('Backup restored!');
+  } catch {
+    statusEl.textContent = 'Import failed — make sure it\'s a valid backup file.';
+    toast('Import failed', 'error');
+  }
+  input.value = '';
 }
 
 // ── Push Notifications ────────────────────────────────────
