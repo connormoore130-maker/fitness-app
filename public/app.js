@@ -565,7 +565,10 @@ async function renderLifts() {
   `).join('');
 
   el.innerHTML = `
-    <div class="page-header"><h1>Lifts</h1></div>
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h1>Lifts</h1>
+      <button class="btn btn-sm" style="font-size:12px;padding:5px 12px;background:var(--surface);border:1px solid var(--border)" onclick="openNewPlanModal2()">+ New Plan</button>
+    </div>
     <div style="padding-bottom:100px">
       <div class="tab-bar" style="margin-bottom:18px;width:100%">${planTabs}</div>
       <div id="lifts-list"></div>
@@ -636,6 +639,7 @@ function showLiftsPlan(planId, tabBtn) {
     }).join('');
 
     const safeName = ex.name.replace(/'/g,"\\'");
+    const exJson = JSON.stringify({name:ex.name,sets:setCount,reps:ex.reps,tempo:ex.tempo||'',rest:ex.rest||'',rpe:ex.rpe||'',notes:ex.notes||''}).replace(/"/g,'&quot;');
     return `
       <div class="card" style="margin-bottom:10px;padding:16px 18px" id="lift-${CSS.escape(ex.name)}">
         <div style="display:flex;gap:12px;align-items:flex-start">
@@ -644,11 +648,21 @@ function showLiftsPlan(planId, tabBtn) {
             <div class="lift-ex-target">${setCount} × ${ex.reps}${ex.tempo ? ' · ' + ex.tempo : ''}${ex.rest ? ' · ' + ex.rest + 's rest' : ''}${ex.rpe ? ' · RPE ' + ex.rpe : ''}</div>
             ${ex.notes ? `<div style="font-size:10px;color:#D97706;margin-top:3px;font-family:var(--font-mono)">📝 ${escHtml(ex.notes)}</div>` : ''}
           </div>
-          <div style="text-align:right;flex-shrink:0">
-            ${prHtml}
-            ${lastMax != null
-              ? `<div class="lift-peak">${lastMax}<span style="font-size:11px;color:rgba(0,0,0,0.4);font-family:var(--font-mono)"> kg</span></div>${deltaHtml}`
-              : `<div style="font-size:12px;color:var(--text-3);font-family:var(--font-mono)">No logs</div>`}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+            <div style="text-align:right">
+              ${prHtml}
+              ${lastMax != null
+                ? `<div class="lift-peak">${lastMax}<span style="font-size:11px;color:rgba(0,0,0,0.4);font-family:var(--font-mono)"> kg</span></div>${deltaHtml}`
+                : `<div style="font-size:12px;color:var(--text-3);font-family:var(--font-mono)">No logs</div>`}
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="delete-btn" style="opacity:1;color:#6c6c72" title="Edit exercise" onclick="openEditExercise('${_currentLiftsPlanId}','${safeName}',${exJson})">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="delete-btn" style="opacity:1;color:#6c6c72" title="Remove exercise" onclick="removeExercise('${_currentLiftsPlanId}','${safeName}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
           </div>
         </div>
         ${lastSessionHtml}
@@ -660,7 +674,18 @@ function showLiftsPlan(planId, tabBtn) {
       </div>
     `;
   }).join('');
+
+  const el2 = document.getElementById('lifts-list');
+  if (el2) el2.innerHTML += `
+    <button class="btn" style="width:100%;margin-top:8px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);font-size:13px"
+      onclick="openAddExercise('${plan.id}')">+ Add Exercise to ${escHtml(plan.name)}</button>
+    ${plan._custom !== undefined || !PROGRAMS_BUILTIN.has(plan.id) ? `
+      <button class="btn" style="width:100%;margin-top:6px;background:transparent;border:1px solid rgba(255,77,77,0.2);color:#ff4d4d;font-size:12px"
+        onclick="deletePlan('${plan.id}')">Delete ${escHtml(plan.name)}</button>` : ''}
+  `;
 }
+
+const PROGRAMS_BUILTIN = new Set(['A','B']);
 
 function toggleLiftInput(name, btn) {
   const panel = document.getElementById(`lift-input-${CSS.escape(name)}`);
@@ -703,6 +728,130 @@ async function saveLifts(name, setCount, isTimed = false) {
 
   window._liftsHistory = await api.get('/api/exercise-history');
   showLiftsPlan(_currentLiftsPlanId);
+}
+
+// ── Exercise editing ──────────────────────────────────────
+function openEditExercise(planId, name, ex) {
+  document.getElementById('edit-ex-plan').value = planId;
+  document.getElementById('edit-ex-orig-name').value = name;
+  document.getElementById('edit-ex-name').value = ex.name || name;
+  document.getElementById('edit-ex-sets').value = ex.sets || 3;
+  document.getElementById('edit-ex-reps').value = ex.reps || '';
+  document.getElementById('edit-ex-tempo').value = ex.tempo || '';
+  document.getElementById('edit-ex-rest').value = ex.rest || '';
+  document.getElementById('edit-ex-rpe').value = ex.rpe || '';
+  document.getElementById('edit-ex-notes').value = ex.notes || '';
+  const overlay = document.getElementById('edit-ex-overlay');
+  const modal = document.getElementById('edit-ex-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeEditExercise() {
+  const modal = document.getElementById('edit-ex-modal');
+  const overlay = document.getElementById('edit-ex-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function saveEditExercise() {
+  const planId   = document.getElementById('edit-ex-plan').value;
+  const origName = document.getElementById('edit-ex-orig-name').value;
+  const newName  = document.getElementById('edit-ex-name').value.trim();
+  const sets     = document.getElementById('edit-ex-sets').value;
+  const reps     = document.getElementById('edit-ex-reps').value.trim();
+  const tempo    = document.getElementById('edit-ex-tempo').value.trim();
+  const rest     = document.getElementById('edit-ex-rest').value;
+  const rpe      = document.getElementById('edit-ex-rpe').value.trim();
+  const notes    = document.getElementById('edit-ex-notes').value.trim();
+  await api.patch(`/api/programs/${planId}/exercises/${encodeURIComponent(origName)}`, { newName, sets, reps, tempo, rest, rpe, notes });
+  closeEditExercise();
+  toast('Exercise updated');
+  window._liftsPrograms = await api.get('/api/programs');
+  showLiftsPlan(planId);
+}
+
+function openAddExercise(planId) {
+  document.getElementById('add-ex-plan').value = planId;
+  document.getElementById('add-ex-name').value = '';
+  document.getElementById('add-ex-sets').value = '3';
+  document.getElementById('add-ex-reps').value = '';
+  document.getElementById('add-ex-tempo').value = '';
+  document.getElementById('add-ex-rest').value = '60';
+  document.getElementById('add-ex-rpe').value = '';
+  document.getElementById('add-ex-notes').value = '';
+  const overlay = document.getElementById('add-ex-overlay');
+  const modal = document.getElementById('add-ex-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeAddExercise() {
+  const modal = document.getElementById('add-ex-modal');
+  const overlay = document.getElementById('add-ex-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function saveAddExercise() {
+  const planId = document.getElementById('add-ex-plan').value;
+  const name   = document.getElementById('add-ex-name').value.trim();
+  if (!name) { toast('Enter an exercise name', 'error'); return; }
+  const sets  = document.getElementById('add-ex-sets').value;
+  const reps  = document.getElementById('add-ex-reps').value.trim();
+  const tempo = document.getElementById('add-ex-tempo').value.trim();
+  const rest  = document.getElementById('add-ex-rest').value;
+  const rpe   = document.getElementById('add-ex-rpe').value.trim();
+  const notes = document.getElementById('add-ex-notes').value.trim();
+  await api.post(`/api/programs/${planId}/exercises`, { name, sets, reps, tempo, rest, rpe, notes });
+  closeAddExercise();
+  toast('Exercise added');
+  window._liftsPrograms = await api.get('/api/programs');
+  showLiftsPlan(planId);
+}
+
+async function removeExercise(planId, name) {
+  if (!confirm(`Remove "${name}" from this plan?`)) return;
+  await api.del(`/api/programs/${planId}/exercises/${encodeURIComponent(name)}`);
+  toast('Exercise removed');
+  window._liftsPrograms = await api.get('/api/programs');
+  showLiftsPlan(planId);
+}
+
+function openNewPlanModal2() {
+  document.getElementById('new-plan-name').value = '';
+  const overlay = document.getElementById('new-plan2-overlay');
+  const modal = document.getElementById('new-plan2-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeNewPlanModal2() {
+  const modal = document.getElementById('new-plan2-modal');
+  const overlay = document.getElementById('new-plan2-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function saveNewPlan() {
+  const name = document.getElementById('new-plan-name').value.trim();
+  if (!name) { toast('Enter a plan name', 'error'); return; }
+  const newPlan = await api.post('/api/programs', { name });
+  closeNewPlanModal2();
+  toast(`${name} created!`);
+  window._liftsPrograms = await api.get('/api/programs');
+  renderLifts();
+}
+
+async function deletePlan(planId) {
+  if (!confirm('Delete this plan?')) return;
+  await api.del(`/api/programs/${planId}`);
+  toast('Plan deleted');
+  window._liftsPrograms = await api.get('/api/programs');
+  renderLifts();
 }
 
 // ── Log Workout ───────────────────────────────────────────

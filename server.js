@@ -376,17 +376,26 @@ const PROGRAMS = [
 
 function getMergedPrograms(db) {
   const c = db.programCustomizations || {};
-  return PROGRAMS.map(plan => {
+  const builtIn = PROGRAMS.map(plan => {
     const pc = c[plan.id] || {};
-    const renames = pc.renames || {};
+    const renames  = pc.renames  || {};
     const additions = pc.additions || [];
-    const removals = new Set(pc.removals || []);
+    const removals  = new Set(pc.removals || []);
+    const overrides = pc.overrides || {};
     const exercises = plan.exercises
       .filter(e => !removals.has(e.name))
-      .map(e => renames[e.name] ? { ...e, name: renames[e.name] } : e)
+      .map(e => {
+        const renamed = renames[e.name] ? { ...e, name: renames[e.name] } : e;
+        const ov = overrides[e.name] || {};
+        return { ...renamed, ...ov };
+      })
       .concat(additions.map(e => ({ ...e, _custom: true })));
     return { ...plan, exercises };
   });
+  const custom = Object.entries(c)
+    .filter(([, v]) => v._custom)
+    .map(([id, v]) => ({ id, name: v.name, exercises: (v.additions || []).map(e => ({ ...e, _custom: true })) }));
+  return [...builtIn, ...custom];
 }
 
 function localToday() { return new Date().toLocaleDateString('en-CA'); }
@@ -590,6 +599,70 @@ app.delete('/api/programs/:planId/exercises/:name', (req, res) => {
   const renames = pc.renames || {};
   const baseKey = Object.keys(renames).find(k => renames[k] === name) || name;
   if (!pc.removals.includes(baseKey)) pc.removals.push(baseKey);
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.patch('/api/programs/:planId/exercises/:name', (req, res) => {
+  const { planId } = req.params;
+  const name = decodeURIComponent(req.params.name);
+  const { sets, reps, tempo, rest, rpe, notes, newName } = req.body;
+  const db = readDB();
+  if (!db.programCustomizations) db.programCustomizations = {};
+  if (!db.programCustomizations[planId]) db.programCustomizations[planId] = {};
+  const pc = db.programCustomizations[planId];
+  // Try to update a custom addition first
+  if (pc.additions) {
+    const ex = pc.additions.find(e => e.name === name);
+    if (ex) {
+      if (sets !== undefined)  ex.sets  = +sets;
+      if (reps !== undefined)  ex.reps  = reps;
+      if (tempo !== undefined) ex.tempo = tempo;
+      if (rest !== undefined)  ex.rest  = rest ? +rest : null;
+      if (rpe !== undefined)   ex.rpe   = rpe;
+      if (notes !== undefined) ex.notes = notes;
+      if (newName?.trim()) ex.name = newName.trim();
+      writeDB(db);
+      return res.json({ ok: true });
+    }
+  }
+  // For base exercises, store overrides
+  if (!pc.overrides) pc.overrides = {};
+  const renames = pc.renames || {};
+  const baseKey = Object.keys(renames).find(k => renames[k] === name) || name;
+  if (!pc.overrides[baseKey]) pc.overrides[baseKey] = {};
+  const ov = pc.overrides[baseKey];
+  if (sets !== undefined)  ov.sets  = +sets;
+  if (reps !== undefined)  ov.reps  = reps;
+  if (tempo !== undefined) ov.tempo = tempo;
+  if (rest !== undefined)  ov.rest  = rest ? +rest : null;
+  if (rpe !== undefined)   ov.rpe   = rpe;
+  if (notes !== undefined) ov.notes = notes;
+  if (newName?.trim()) {
+    if (!pc.renames) pc.renames = {};
+    pc.renames[baseKey] = newName.trim();
+  }
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/programs', (req, res) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+  const db = readDB();
+  if (!db.programCustomizations) db.programCustomizations = {};
+  const existingIds = [...PROGRAMS.map(p => p.id), ...Object.keys(db.programCustomizations).filter(k => db.programCustomizations[k]._custom)];
+  const id = 'custom_' + Date.now();
+  db.programCustomizations[id] = { _custom: true, name: name.trim(), additions: [] };
+  writeDB(db);
+  res.json({ id, name: name.trim(), exercises: [] });
+});
+
+app.delete('/api/programs/:planId', (req, res) => {
+  const { planId } = req.params;
+  if (PROGRAMS.find(p => p.id === planId)) return res.status(400).json({ error: 'cannot delete built-in plan' });
+  const db = readDB();
+  if (db.programCustomizations) delete db.programCustomizations[planId];
   writeDB(db);
   res.json({ ok: true });
 });
