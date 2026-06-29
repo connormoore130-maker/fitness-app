@@ -6,7 +6,7 @@ const STRENGTH_KEYWORDS = ['weight training','gym','crossfit','lifting','push','
 
 // ── Settings ──────────────────────────────────────────────
 const Settings = {
-  defaults: { name:'', calorieGoal:2000, weightUnit:'lbs', proteinGoal:160, goalWeight:null },
+  defaults: { name:'', calorieGoal:2000, weightUnit:'lbs', proteinGoal:160, goalWeight:null, heightCm:null },
   get() { try { return {...this.defaults,...JSON.parse(localStorage.getItem('apex-settings')||'{}')}; } catch { return {...this.defaults}; } },
   set(obj) { localStorage.setItem('apex-settings', JSON.stringify({...this.get(),...obj})); },
 };
@@ -1293,20 +1293,34 @@ async function renderWeight() {
   const first  = entries[0];
   const change = latest && first && latest.id!==first.id ? +(latest.weight-first.weight).toFixed(1) : null;
 
+  const heightCm = s.heightCm || null;
+  const latestBMI = latest && heightCm ? +(latest.weight / ((heightCm/100)**2) * (s.weightUnit==='lbs'?0.4536:1) / ((heightCm/100)**2)).toFixed(1) : null;
+  const bmi = latest && heightCm ? +((s.weightUnit==='lbs' ? latest.weight*0.4536 : latest.weight) / ((heightCm/100)**2)).toFixed(1) : null;
+
   el.innerHTML = `
-    <div class="page-header"><h1>Weight</h1><p>Track your fat loss trend over time</p></div>
+    <div class="page-header"><h1>Weight</h1><p>Track your body composition over time</p></div>
     <div class="grid-2" style="margin-bottom:16px">
       <div class="card">
-        <div class="card-title">Current Weight</div>
+        <div class="card-title">Current</div>
         <div class="weight-current">${latest?latest.weight:'—'}<span class="weight-unit">${s.weightUnit}</span></div>
         <div class="weight-change">${change!==null?`<span class="${change<=0?'pos':'neg'}" style="font-size:13.5px;font-weight:600">${change>0?'+':''}${change} ${s.weightUnit} since start</span>`:'<span style="color:var(--text-3);font-size:13px">Log more entries to see change</span>'}</div>
+        ${bmi ? `<div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap">
+          <div style="font-size:12px;color:var(--text-3)">BMI <strong style="color:#dcdce0">${bmi}</strong></div>
+          ${latest.bodyFat!=null?`<div style="font-size:12px;color:var(--text-3)">Body Fat <strong style="color:#dcdce0">${latest.bodyFat}%</strong></div>`:''}
+          ${latest.skeletalMuscleMass!=null?`<div style="font-size:12px;color:var(--text-3)">Skeletal Muscle <strong style="color:#dcdce0">${latest.skeletalMuscleMass}%</strong></div>`:''}
+        </div>` : (!heightCm ? `<div style="font-size:11px;color:var(--text-3);margin-top:8px">Add height in Settings to see BMI</div>` : '')}
       </div>
       <div class="card">
-        <div class="card-title">Log Weight</div>
-        <div class="form-row" style="margin-bottom:12px">
+        <div class="card-title">Log Entry</div>
+        <div class="form-row" style="margin-bottom:10px">
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Weight (${s.weightUnit})</label><input class="form-input" id="w-weight" type="number" step="0.1" placeholder="e.g. 175.2" /></div>
-          <div class="form-group" style="margin-bottom:0"><label class="form-label">Note</label><input class="form-input" id="w-note" placeholder="fasted, PM…" /></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Date</label><input class="form-input" id="w-date" type="date" value="${todayStr()}" max="${todayStr()}" /></div>
         </div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Body Fat %</label><input class="form-input" id="w-bf" type="number" step="0.1" placeholder="e.g. 18.5" /></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Skeletal Muscle %</label><input class="form-input" id="w-smm" type="number" step="0.1" placeholder="e.g. 42.3" /></div>
+        </div>
+        <div class="form-group" style="margin-bottom:12px"><label class="form-label">Note</label><input class="form-input" id="w-note" placeholder="fasted, PM…" /></div>
         <button class="btn btn-primary btn-sm" id="w-save">Save Entry</button>
       </div>
     </div>
@@ -1317,16 +1331,25 @@ async function renderWeight() {
     <div class="card">
       <div class="card-title">History</div>
       <div class="weight-entries">
-        ${entries.length?[...entries].reverse().slice(0,20).map(e=>`
+        ${entries.length?[...entries].reverse().slice(0,30).map(e=>{
+          const eBmi = heightCm ? +((s.weightUnit==='lbs'?e.weight*0.4536:e.weight)/((heightCm/100)**2)).toFixed(1) : null;
+          return `
           <div class="weight-row" id="wr-${e.id}">
-            <div><div class="weight-row-val">${e.weight} ${e.unit}</div>${e.note?`<div style="font-size:12px;color:var(--text-2)">${escHtml(e.note)}</div>`:''}</div>
-            <div style="display:flex;align-items:center;gap:12px">
+            <div style="flex:1;min-width:0">
+              <div class="weight-row-val">${e.weight} ${e.unit}${eBmi?`<span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:8px">BMI ${eBmi}</span>`:''}</div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:2px">
+                ${e.bodyFat!=null?`<span style="font-size:11px;color:var(--text-3)">Fat ${e.bodyFat}%</span>`:''}
+                ${e.skeletalMuscleMass!=null?`<span style="font-size:11px;color:var(--text-3)">Muscle ${e.skeletalMuscleMass}%</span>`:''}
+                ${e.note?`<span style="font-size:11px;color:var(--text-3)">${escHtml(e.note)}</span>`:''}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
               <div class="weight-row-date">${fmtDate(e.date)}</div>
               <button class="weight-row-del" onclick="deleteWeight(${e.id})" title="Delete">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
               </button>
             </div>
-          </div>`).join(''):`<div class="empty-state"><p style="color:var(--text-3);font-size:13px">No entries yet</p></div>`}
+          </div>`}).join(''):`<div class="empty-state"><p style="color:var(--text-3);font-size:13px">No entries yet</p></div>`}
       </div>
     </div>
   `;
@@ -1339,7 +1362,14 @@ async function renderWeight() {
 async function saveWeight() {
   const w = parseFloat(document.getElementById('w-weight')?.value);
   if (!w||isNaN(w)) { toast('Enter a valid weight','error'); return; }
-  await api.post('/api/weight', {weight:w, unit:Settings.get().weightUnit, note:document.getElementById('w-note')?.value||''});
+  const date = document.getElementById('w-date')?.value || todayStr();
+  const bf   = parseFloat(document.getElementById('w-bf')?.value);
+  const smm  = parseFloat(document.getElementById('w-smm')?.value);
+  const note = document.getElementById('w-note')?.value || '';
+  const body = { weight:w, unit:Settings.get().weightUnit, note, date };
+  if (!isNaN(bf))  body.bodyFat = bf;
+  if (!isNaN(smm)) body.skeletalMuscleMass = smm;
+  await api.post('/api/weight', body);
   toast('Weight saved!');
   renderWeight();
 }
@@ -1462,8 +1492,9 @@ async function renderNutritionToday() {
         ` : `<div style="color:var(--text-3);font-size:13px;padding:12px 0">Nothing logged yet today.</div>`}
       </div>
       <div class="card">
-        <div class="card-title">${hasEntry ? 'Update Today' : 'Log Today'}</div>
-        <p style="font-size:12px;color:var(--text-3);margin-bottom:14px">Enter your daily totals from your nutrition app.</p>
+        <div class="card-title">Log Nutrition</div>
+        <p style="font-size:12px;color:var(--text-3);margin-bottom:12px">Enter daily totals. Change the date to backdate.</p>
+        <div class="form-group" style="margin-bottom:12px"><label class="form-label">Date</label><input class="form-input" id="n-date" type="date" value="${today}" max="${today}" /></div>
         <div class="form-row" style="margin-bottom:12px">
           <div class="form-group" style="margin-bottom:0"><label class="form-label">kcal</label><input class="form-input" id="n-cal" type="number" placeholder="0" value="${hasEntry?tot.cal:''}" /></div>
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Protein (g)</label><input class="form-input" id="n-pro" type="number" placeholder="0" value="${hasEntry?tot.p.toFixed(0):''}" /></div>
@@ -1472,7 +1503,7 @@ async function renderNutritionToday() {
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Carbs (g)</label><input class="form-input" id="n-car" type="number" placeholder="0" value="${hasEntry?tot.c.toFixed(0):''}" /></div>
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Fat (g)</label><input class="form-input" id="n-fat" type="number" placeholder="0" value="${hasEntry?tot.f.toFixed(0):''}" /></div>
         </div>
-        <button class="btn btn-primary btn-sm" id="n-save">${hasEntry ? 'Update' : 'Save'}</button>
+        <button class="btn btn-primary btn-sm" id="n-save">${hasEntry ? 'Update Today' : 'Save'}</button>
       </div>
     </div>
     ${histDays.length ? `
@@ -1498,15 +1529,16 @@ async function renderNutritionToday() {
 }
 
 async function saveDailyMacros() {
-  const cal = +document.getElementById('n-cal')?.value || 0;
-  const pro = +document.getElementById('n-pro')?.value || 0;
-  const car = +document.getElementById('n-car')?.value || 0;
-  const fat = +document.getElementById('n-fat')?.value || 0;
+  const cal  = +document.getElementById('n-cal')?.value || 0;
+  const pro  = +document.getElementById('n-pro')?.value || 0;
+  const car  = +document.getElementById('n-car')?.value || 0;
+  const fat  = +document.getElementById('n-fat')?.value || 0;
+  const date = document.getElementById('n-date')?.value || todayStr();
   if (!cal && !pro) { toast('Enter at least calories or protein','error'); return; }
   const btn = document.getElementById('n-save');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    await api.patch('/api/nutrition/daily', { calories: cal, protein: pro, carbs: car, fat });
+    await api.patch('/api/nutrition/daily', { calories: cal, protein: pro, carbs: car, fat, date });
     toast('Saved!');
     renderNutritionToday();
   } catch { toast('Failed to save','error'); btn.disabled=false; btn.textContent='Save'; }
@@ -1887,6 +1919,7 @@ function renderSettings() {
         <div class="form-group"><label class="form-label">Daily calorie goal (kcal)</label><input class="form-input" id="s-cal" type="number" value="${s.calorieGoal}" /></div>
         <div class="form-group"><label class="form-label">Daily protein goal (g)</label><input class="form-input" id="s-pro" type="number" value="${s.proteinGoal}" /></div>
         <div class="form-group"><label class="form-label">Goal weight (${s.weightUnit}) — for progress tracking</label><input class="form-input" id="s-goal" type="number" step="0.1" placeholder="e.g. 165" value="${s.goalWeight||''}" /></div>
+        <div class="form-group"><label class="form-label">Height (cm) — for BMI calculation</label><input class="form-input" id="s-height" type="number" step="1" placeholder="e.g. 178" value="${s.heightCm||''}" /></div>
       </div>
       <div class="divider"></div>
       <div class="settings-section">
@@ -1927,7 +1960,8 @@ function renderSettings() {
   `;
   document.getElementById('s-save')?.addEventListener('click',()=>{
     const gw = parseFloat(document.getElementById('s-goal').value);
-    Settings.set({name:document.getElementById('s-name').value.trim(),calorieGoal:+document.getElementById('s-cal').value||2000,proteinGoal:+document.getElementById('s-pro').value||160,weightUnit:document.getElementById('s-unit').value,goalWeight:isNaN(gw)?null:gw});
+    const gh = parseFloat(document.getElementById('s-height').value);
+    Settings.set({name:document.getElementById('s-name').value.trim(),calorieGoal:+document.getElementById('s-cal').value||2000,proteinGoal:+document.getElementById('s-pro').value||160,weightUnit:document.getElementById('s-unit').value,goalWeight:isNaN(gw)?null:gw,heightCm:isNaN(gh)?null:gh});
     toast('Settings saved!');
   });
 
