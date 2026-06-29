@@ -1334,7 +1334,11 @@ async function renderWeight() {
           <button class="tab-btn" onclick="switchWeightMetric('smm',this)">Muscle</button>
         </div>
       </div>
-      ${entries.length<2?`<div class="empty-state"><div class="empty-state-icon">📈</div><p>Log at least 2 entries to see trends.</p></div>`:`<div class="chart-container"><canvas id="weight-chart"></canvas></div>`}
+      ${entries.length<2?`<div class="empty-state"><div class="empty-state-icon">📈</div><p>Log at least 2 entries to see trends.</p></div>`:`
+        <div class="chart-container"><canvas id="weight-chart"></canvas></div>
+        <div id="weight-day-detail" style="display:none;margin-top:12px;padding:12px 14px;background:#1e1e24;border-radius:10px;border:1px solid var(--border)"></div>
+        <p style="font-size:11px;color:var(--text-3);margin-top:8px;text-align:center">Tap a point to see full details</p>
+      `}
     </div>
     <div class="card">
       <div class="card-title">History</div>
@@ -1439,8 +1443,17 @@ function initWeightChart(entries, metric='weight') {
 
   const cfg = configs[metric] || configs.weight;
   const validData = cfg.data.filter(v => v != null);
+
+  // Show/hide no-data message without destroying the canvas
+  const noDataEl = document.getElementById('weight-chart-nodata');
+  if (noDataEl) noDataEl.remove();
+  canvas.style.display = validData.length < 2 ? 'none' : 'block';
   if (validData.length < 2) {
-    canvas.parentElement.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📈</div><p>Not enough ${cfg.label} data yet.<br>Log more entries with this metric.</p></div>`;
+    const msg = document.createElement('div');
+    msg.id = 'weight-chart-nodata';
+    msg.className = 'empty-state';
+    msg.innerHTML = `<div class="empty-state-icon">📈</div><p>Not enough ${cfg.label} data yet.<br>Log more entries with this metric.</p>`;
+    canvas.parentElement.appendChild(msg);
     return;
   }
 
@@ -1461,6 +1474,29 @@ function initWeightChart(entries, metric='weight') {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
+      onClick: (_e, elements) => {
+        if (!elements.length) return;
+        const idx = elements[0].index;
+        const e = entries[idx];
+        if (!e) return;
+        const heightCm = window._weightHeightCm;
+        const unit = window._weightUnit || 'kg';
+        const bmiVal = heightCm ? +((unit==='lbs'?e.weight*0.4536:e.weight)/((heightCm/100)**2)).toFixed(1) : null;
+        const detail = document.getElementById('weight-day-detail');
+        if (detail) {
+          detail.innerHTML = `
+            <div style="font-size:13px;font-weight:700;color:#dcdce0;margin-bottom:8px">${fmtDate(e.date)}</div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+              <div><div style="font-size:11px;color:var(--text-3)">Weight</div><div style="font-size:16px;font-weight:700;color:var(--mint)">${e.weight} ${unit}</div></div>
+              ${bmiVal?`<div><div style="font-size:11px;color:var(--text-3)">BMI</div><div style="font-size:16px;font-weight:700;color:#60a5fa">${bmiVal}</div></div>`:''}
+              ${e.bodyFat!=null?`<div><div style="font-size:11px;color:var(--text-3)">Body Fat</div><div style="font-size:16px;font-weight:700;color:#f97316">${e.bodyFat}%</div></div>`:''}
+              ${e.skeletalMuscleMass!=null?`<div><div style="font-size:11px;color:var(--text-3)">Muscle</div><div style="font-size:16px;font-weight:700;color:#a78bfa">${e.skeletalMuscleMass}%</div></div>`:''}
+              ${e.note?`<div><div style="font-size:11px;color:var(--text-3)">Note</div><div style="font-size:13px;color:#dcdce0">${escHtml(e.note)}</div></div>`:''}
+            </div>
+          `;
+          detail.style.display = 'block';
+        }
+      },
       plugins: {
         legend: { position: 'top', labels: { boxWidth: 12, boxHeight: 2, padding: 16, font: { size: 11, family: 'Manrope' }, color: '#85858c' } },
         tooltip: { backgroundColor: '#141417', titleColor: cfg.color, bodyColor: '#dcdce0', borderColor: '#ffffff14', borderWidth: 1, padding: 10, callbacks: { label: ctx => ctx.parsed.y != null ? ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}${cfg.suffix}` : '' } },
