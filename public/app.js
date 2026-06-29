@@ -1325,8 +1325,16 @@ async function renderWeight() {
       </div>
     </div>
     <div class="card" style="margin-bottom:16px">
-      <div class="card-title">Trend${entries.length>=3?' · dashed = 7-day avg':''}</div>
-      ${entries.length<2?`<div class="empty-state"><div class="empty-state-icon">📈</div><p>Log at least 2 weights to see your trend.</p></div>`:`<div class="chart-container"><canvas id="weight-chart"></canvas></div>`}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Trends</div>
+        <div class="tab-bar" style="font-size:12px">
+          <button class="tab-btn active" onclick="switchWeightMetric('weight',this)">Weight</button>
+          <button class="tab-btn" onclick="switchWeightMetric('bmi',this)">BMI</button>
+          <button class="tab-btn" onclick="switchWeightMetric('bf',this)">Body Fat</button>
+          <button class="tab-btn" onclick="switchWeightMetric('smm',this)">Muscle</button>
+        </div>
+      </div>
+      ${entries.length<2?`<div class="empty-state"><div class="empty-state-icon">📈</div><p>Log at least 2 entries to see trends.</p></div>`:`<div class="chart-container"><canvas id="weight-chart"></canvas></div>`}
     </div>
     <div class="card">
       <div class="card-title">History</div>
@@ -1356,7 +1364,12 @@ async function renderWeight() {
 
   document.getElementById('w-save')?.addEventListener('click', saveWeight);
   document.getElementById('w-weight')?.addEventListener('keydown', e=>{ if(e.key==='Enter') saveWeight(); });
-  if (entries.length>=2) setTimeout(()=>initWeightChart(entries), 50);
+  if (entries.length>=2) {
+    window._weightEntries = entries;
+    window._weightHeightCm = heightCm;
+    window._weightUnit = s.weightUnit;
+    setTimeout(()=>initWeightChart(entries, 'weight'), 50);
+  }
 }
 
 async function saveWeight() {
@@ -1380,34 +1393,81 @@ async function deleteWeight(id) {
   toast('Entry deleted');
 }
 
-function initWeightChart(entries) {
+function switchWeightMetric(metric, btn) {
+  document.querySelectorAll('#view-weight .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  const entries = window._weightEntries || [];
+  if (entries.length >= 2) initWeightChart(entries, metric);
+}
+
+function initWeightChart(entries, metric='weight') {
   const canvas = document.getElementById('weight-chart');
   if (!canvas) return;
   if (weightChart) { weightChart.destroy(); weightChart=null; }
-  const labels = entries.map(e=>fmtDateShort(e.date));
-  const weights = entries.map(e=>e.weight);
-  const avg = movingAverage(weights,7);
+  const heightCm = window._weightHeightCm;
+  const unit = window._weightUnit || 'kg';
+
+  const configs = {
+    weight: {
+      label: `Weight (${unit})`,
+      color: '#00ff88',
+      bg: 'rgba(0,255,136,0.06)',
+      data: entries.map(e => e.weight),
+      suffix: unit,
+    },
+    bmi: {
+      label: 'BMI',
+      color: '#60a5fa',
+      bg: 'rgba(96,165,250,0.06)',
+      data: entries.map(e => heightCm ? +((unit==='lbs'?e.weight*0.4536:e.weight)/((heightCm/100)**2)).toFixed(1) : null),
+      suffix: '',
+    },
+    bf: {
+      label: 'Body Fat %',
+      color: '#f97316',
+      bg: 'rgba(249,115,22,0.06)',
+      data: entries.map(e => e.bodyFat ?? null),
+      suffix: '%',
+    },
+    smm: {
+      label: 'Skeletal Muscle %',
+      color: '#a78bfa',
+      bg: 'rgba(167,139,250,0.06)',
+      data: entries.map(e => e.skeletalMuscleMass ?? null),
+      suffix: '%',
+    },
+  };
+
+  const cfg = configs[metric] || configs.weight;
+  const validData = cfg.data.filter(v => v != null);
+  if (validData.length < 2) {
+    canvas.parentElement.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📈</div><p>Not enough ${cfg.label} data yet.<br>Log more entries with this metric.</p></div>`;
+    return;
+  }
+
+  const labels = entries.map(e => fmtDateShort(e.date));
+  const avg = movingAverage(cfg.data.map(v => v ?? 0), 7);
+
   Chart.defaults.color = '#9a9aa0';
   Chart.defaults.borderColor = '#ffffff12';
   weightChart = new Chart(canvas, {
-    type:'line',
-    data:{
+    type: 'line',
+    data: {
       labels,
-      datasets:[
-        {label:'Weight',data:weights,borderColor:'#00ff88',backgroundColor:'rgba(0,255,136,0.06)',pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#00ff88',pointBorderColor:'#141417',pointBorderWidth:2,tension:0.2,fill:true},
-        {label:'7-day avg',data:avg,borderColor:'#5a5a61',borderDash:[4,3],borderWidth:2,pointRadius:0,tension:0.3,fill:false},
+      datasets: [
+        { label: cfg.label, data: cfg.data, borderColor: cfg.color, backgroundColor: cfg.bg, pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: cfg.color, pointBorderColor: '#141417', pointBorderWidth: 2, tension: 0.2, fill: true, spanGaps: true },
+        { label: '7-day avg', data: avg, borderColor: '#5a5a61', borderDash: [4,3], borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false, spanGaps: true },
       ]
     },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{position:'top',labels:{boxWidth:12,boxHeight:2,padding:16,font:{size:11,family:'Manrope'},color:'#85858c'}},
-        tooltip:{backgroundColor:'#141417',titleColor:'#00ff88',bodyColor:'#dcdce0',borderColor:'#ffffff14',borderWidth:1,padding:10,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}`}},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, boxHeight: 2, padding: 16, font: { size: 11, family: 'Manrope' }, color: '#85858c' } },
+        tooltip: { backgroundColor: '#141417', titleColor: cfg.color, bodyColor: '#dcdce0', borderColor: '#ffffff14', borderWidth: 1, padding: 10, callbacks: { label: ctx => ctx.parsed.y != null ? ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}${cfg.suffix}` : '' } },
       },
-      scales:{
-        x:{grid:{color:'#ffffff0a'},ticks:{maxTicksLimit:8,maxRotation:0,font:{size:10,family:'Manrope'},color:'#6c6c72'}},
-        y:{grid:{color:'#ffffff0a'},ticks:{font:{size:10,family:'Manrope'},color:'#6c6c72',callback:v=>v.toFixed(1)}},
+      scales: {
+        x: { grid: { color: '#ffffff0a' }, ticks: { maxTicksLimit: 8, maxRotation: 0, font: { size: 10, family: 'Manrope' }, color: '#6c6c72' } },
+        y: { grid: { color: '#ffffff0a' }, ticks: { font: { size: 10, family: 'Manrope' }, color: '#6c6c72', callback: v => v.toFixed(1) + cfg.suffix } },
       }
     }
   });
