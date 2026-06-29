@@ -867,9 +867,12 @@ async function renderLog() {
         <textarea class="nlp-input" id="nlp-input" placeholder="e.g. did 45 mins Muay Thai, felt strong&#10;1 hour weight training, push day, crushed it&#10;ran 5k this morning, solid pace"></textarea>
       </div>
       <div id="parse-preview" class="parse-preview empty" style="margin-top:10px">Start typing to see how your workout will be parsed…</div>
-      <div style="display:flex;gap:10px;margin-top:14px;align-items:center">
+      <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" id="log-btn">Save Workout</button>
-        <span style="font-size:12px;color:var(--text-3)">Ctrl+Enter</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:12px;color:var(--text-3)">Date:</label>
+          <input type="date" id="log-date" class="edit-input" style="padding:6px 10px;font-size:13px;width:auto" value="${todayStr()}" max="${todayStr()}" />
+        </div>
       </div>
     </div>
 
@@ -915,7 +918,8 @@ async function renderLog() {
     if (!text) { toast('Enter a workout description','error'); return; }
     logBtn.disabled=true; logBtn.textContent='Saving…';
     try {
-      const saved = await api.post('/api/workouts', {text});
+      const date = document.getElementById('log-date')?.value || todayStr();
+      const saved = await api.post('/api/workouts', {text, date});
       toast('Workout logged!');
       input.value=''; preview.className='parse-preview empty'; preview.textContent='Start typing to see how your workout will be parsed…';
       renderLog();
