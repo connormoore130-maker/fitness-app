@@ -1562,7 +1562,29 @@ async function renderNutritionToday() {
   });
   const histDays = Object.keys(byDay).sort().reverse().filter(d=>d!==today).slice(0,6);
 
+  const waterKey = `water-${today}`;
+  const waterGlasses = +localStorage.getItem(waterKey) || 0;
+  const waterGoal = 8;
+  const waterPct = Math.min(100, Math.round(waterGlasses / waterGoal * 100));
+
   content.innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div class="card-title" style="margin-bottom:2px">💧 Water</div>
+          <div style="font-size:12px;color:var(--text-3)">${waterGlasses} of ${waterGoal} glasses · ~${waterGlasses*250}ml of 2L</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="adjustWater(-1,'${today}')">−</button>
+          <span style="font-size:22px;font-weight:800;min-width:28px;text-align:center">${waterGlasses}</span>
+          <button class="btn btn-primary btn-sm" onclick="adjustWater(1,'${today}')">+ Glass</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:6px">
+        ${Array.from({length:waterGoal},(_,i)=>`<div style="flex:1;height:8px;border-radius:4px;background:${i<waterGlasses?'var(--accent)':'var(--surface-2)'}"></div>`).join('')}
+      </div>
+      ${waterGlasses >= waterGoal ? `<div style="font-size:12px;color:var(--accent);font-weight:600">Target hit! Great work 💪</div>` : `<div style="font-size:12px;color:var(--text-3)">${waterGoal-waterGlasses} more to go. Aim for a glass every 1–2 hours.</div>`}
+    </div>
     <div class="grid-2" style="margin-bottom:16px">
       <div class="card">
         <div class="card-title">Today · ${new Date().toLocaleDateString('en-GB',{weekday:'long',month:'short',day:'numeric'})}</div>
@@ -1622,6 +1644,14 @@ async function renderNutritionToday() {
       </div>` : ''}
   `;
   document.getElementById('n-save')?.addEventListener('click', saveDailyMacros);
+}
+
+function adjustWater(delta, date) {
+  const key = `water-${date}`;
+  const current = +localStorage.getItem(key) || 0;
+  const next = Math.max(0, current + delta);
+  localStorage.setItem(key, next);
+  renderNutritionToday();
 }
 
 async function saveDailyMacros() {
