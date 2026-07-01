@@ -6,7 +6,7 @@ const STRENGTH_KEYWORDS = ['weight training','gym','crossfit','lifting','push','
 
 // ── Settings ──────────────────────────────────────────────
 const Settings = {
-  defaults: { name:'', calorieGoal:2000, weightUnit:'lbs', proteinGoal:160, goalWeight:null, heightCm:null },
+  defaults: { name:'', calorieGoal:1600, weightUnit:'lbs', proteinGoal:180, carbGoal:107.5, fatGoal:50, goalWeight:null, heightCm:null },
   get() { try { return {...this.defaults,...JSON.parse(localStorage.getItem('apex-settings')||'{}')}; } catch { return {...this.defaults}; } },
   set(obj) { localStorage.setItem('apex-settings', JSON.stringify({...this.get(),...obj})); },
 };
@@ -1570,9 +1570,9 @@ async function renderNutritionToday() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:14px">
             <div><div style="font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1">${tot.cal}</div><div style="font-size:12px;color:var(--text-2);margin-top:3px">of ${s.calorieGoal} kcal</div></div>
             <div style="display:grid;gap:5px;align-content:center">
-              <div style="font-size:12.5px"><span style="color:var(--accent-2);font-weight:600">${tot.p.toFixed(0)}g</span> <span style="color:var(--text-3)">protein</span></div>
-              <div style="font-size:12.5px"><span style="color:var(--amber);font-weight:600">${tot.c.toFixed(0)}g</span> <span style="color:var(--text-3)">carbs</span></div>
-              <div style="font-size:12.5px"><span style="color:var(--red);font-weight:600">${tot.f.toFixed(0)}g</span> <span style="color:var(--text-3)">fat</span></div>
+              <div style="font-size:12.5px"><span style="color:var(--accent-2);font-weight:600">${tot.p.toFixed(0)}g</span> <span style="color:var(--text-3)">/ ${s.proteinGoal}g protein</span></div>
+              <div style="font-size:12.5px"><span style="color:var(--amber);font-weight:600">${tot.c.toFixed(0)}g</span> <span style="color:var(--text-3)">/ ${s.carbGoal}g carbs</span></div>
+              <div style="font-size:12.5px"><span style="color:var(--red);font-weight:600">${tot.f.toFixed(0)}g</span> <span style="color:var(--text-3)">/ ${s.fatGoal}g fat</span></div>
             </div>
           </div>
           <div class="macro-bar">
@@ -1676,7 +1676,7 @@ async function renderMealPlan() {
     <div class="meal-plan-header">
       <div>
         <div style="font-size:14px;font-weight:600">This Week's Meal Plan</div>
-        <div style="font-size:12px;color:var(--text-2);margin-top:2px">Targets ~${s.calorieGoal} kcal/day</div>
+        <div style="font-size:12px;color:var(--text-2);margin-top:2px">~${s.calorieGoal} kcal · ${s.proteinGoal}g P · ${s.carbGoal}g C · ${s.fatGoal}g F</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="regenerateMealPlan()">↺ Regenerate</button>
     </div>
@@ -2014,6 +2014,8 @@ function renderSettings() {
         <div class="settings-title">Goals</div>
         <div class="form-group"><label class="form-label">Daily calorie goal (kcal)</label><input class="form-input" id="s-cal" type="number" value="${s.calorieGoal}" /></div>
         <div class="form-group"><label class="form-label">Daily protein goal (g)</label><input class="form-input" id="s-pro" type="number" value="${s.proteinGoal}" /></div>
+        <div class="form-group"><label class="form-label">Daily carbs goal (g)</label><input class="form-input" id="s-carb" type="number" step="0.5" value="${s.carbGoal}" /></div>
+        <div class="form-group"><label class="form-label">Daily fat goal (g)</label><input class="form-input" id="s-fat" type="number" step="0.5" value="${s.fatGoal}" /></div>
         <div class="form-group"><label class="form-label">Goal weight (${s.weightUnit}) — for progress tracking</label><input class="form-input" id="s-goal" type="number" step="0.1" placeholder="e.g. 165" value="${s.goalWeight||''}" /></div>
         <div class="form-group"><label class="form-label">Height (cm) — for BMI calculation</label><input class="form-input" id="s-height" type="number" step="1" placeholder="e.g. 178" value="${s.heightCm||''}" /></div>
       </div>
@@ -2057,7 +2059,7 @@ function renderSettings() {
   document.getElementById('s-save')?.addEventListener('click',()=>{
     const gw = parseFloat(document.getElementById('s-goal').value);
     const gh = parseFloat(document.getElementById('s-height').value);
-    Settings.set({name:document.getElementById('s-name').value.trim(),calorieGoal:+document.getElementById('s-cal').value||2000,proteinGoal:+document.getElementById('s-pro').value||160,weightUnit:document.getElementById('s-unit').value,goalWeight:isNaN(gw)?null:gw,heightCm:isNaN(gh)?null:gh});
+    Settings.set({name:document.getElementById('s-name').value.trim(),calorieGoal:+document.getElementById('s-cal').value||1600,proteinGoal:+document.getElementById('s-pro').value||180,carbGoal:+document.getElementById('s-carb').value||107.5,fatGoal:+document.getElementById('s-fat').value||50,weightUnit:document.getElementById('s-unit').value,goalWeight:isNaN(gw)?null:gw,heightCm:isNaN(gh)?null:gh});
     toast('Settings saved!');
   });
 
