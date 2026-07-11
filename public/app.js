@@ -2000,8 +2000,15 @@ async function saveMarathonActual(key, wk) {
   const notes = document.getElementById(`mact-notes-${key}`)?.value?.trim() || '';
   _marathonActuals[key] = { duration, pace, notes, savedAt: new Date().toISOString() };
   await api.post('/api/marathon-actuals', { key, duration, pace, notes });
-  // Mark complete too
-  if (!_marathonCompletions[key]) { _marathonCompletions[key] = true; await api.post('/api/marathon-completions', { key, done: true }); }
+  // Mark complete + sync streak
+  const dayPart = key.slice(key.indexOf('-') + 1);
+  if (!_marathonCompletions[key]) {
+    _marathonCompletions[key] = true;
+    await Promise.all([
+      api.post('/api/marathon-completions', { key, done: true }),
+      syncMarathonToStreak(wk, dayPart, true),
+    ]);
+  }
   // Refresh week meta
   const [wkNum] = key.split('-');
   updateMarathonWeekMeta(+wkNum);
@@ -2042,11 +2049,44 @@ function updateMarathonWeekMeta(wk) {
   if (meta) meta.textContent = `${w.phase} · ${w.km} km · ${totalDone}/${runDays} done`;
 }
 
+function marathonRunDate(wk, day) {
+  const w = MARATHON_PLAN.find(w => w.wk === wk);
+  if (!w) return null;
+  const base = new Date(w.weekOf + 'T00:00:00');
+  const offset = MARATHON_DAYS.indexOf(day);
+  base.setDate(base.getDate() + offset);
+  return base.toLocaleDateString('en-CA'); // YYYY-MM-DD
+}
+
+function marathonStreakType(desc) {
+  const rt = marathonRunType(desc);
+  if (rt.type === 'cross') return 'boxing';
+  if (['easy','long','mp','tempo','intervals','race'].includes(rt.type)) return 'running';
+  return null;
+}
+
+async function syncMarathonToStreak(wk, day, done) {
+  const date = marathonRunDate(wk, day);
+  if (!date) return;
+  const w = MARATHON_PLAN.find(w => w.wk === wk);
+  const desc = _marathonEdits[`${wk}-${day}`] || w?.[day] || '';
+  const type = marathonStreakType(desc);
+  if (!type) return; // rest day — don't touch streak
+  await api.post('/api/streak-calendar/set', { date, type: done ? type : null });
+  // Invalidate streak cache so it reloads next visit
+  _streakCache = null;
+}
+
 async function toggleMarathonRun(key, wk) {
+  const [, day] = key.split(/-(.+)/); // wk-day (day may contain extra dashes)
+  const dayPart = key.slice(key.indexOf('-') + 1);
   const done = !_marathonCompletions[key];
   if (done) _marathonCompletions[key] = true;
   else delete _marathonCompletions[key];
-  await api.post('/api/marathon-completions', { key, done });
+  await Promise.all([
+    api.post('/api/marathon-completions', { key, done }),
+    syncMarathonToStreak(wk, dayPart, done),
+  ]);
   updateMarathonWeekMeta(wk);
   const btn = document.getElementById(`mcheck-${key}`);
   if (btn) {
