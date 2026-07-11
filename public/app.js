@@ -6,7 +6,7 @@ const STRENGTH_KEYWORDS = ['weight training','gym','crossfit','lifting','push','
 
 // ── Settings ──────────────────────────────────────────────
 const Settings = {
-  defaults: { name:'', calorieGoal:2000, weightUnit:'lbs', proteinGoal:160, goalWeight:null },
+  defaults: { name:'', calorieGoal:1600, weightUnit:'lbs', proteinGoal:180, carbGoal:107.5, fatGoal:50, goalWeight:null, heightCm:null },
   get() { try { return {...this.defaults,...JSON.parse(localStorage.getItem('apex-settings')||'{}')}; } catch { return {...this.defaults}; } },
   set(obj) { localStorage.setItem('apex-settings', JSON.stringify({...this.get(),...obj})); },
 };
@@ -17,6 +17,7 @@ const api = {
   async post(p,b)   { const r=await fetch(p,{method:'POST',  headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); if(!r.ok) throw new Error(); return r.json(); },
   async del(p)      { const r=await fetch(p,{method:'DELETE'}); if(!r.ok) throw new Error(); return r.json(); },
   async patch(p,b)  { const r=await fetch(p,{method:'PATCH',  headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); if(!r.ok) throw new Error(); return r.json(); },
+  async put(p,b)    { const r=await fetch(p,{method:'PUT',    headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); if(!r.ok) throw new Error(); return r.json(); },
 };
 
 // ── NLP ───────────────────────────────────────────────────
@@ -329,6 +330,13 @@ async function renderDashboard() {
           </label>`).join('')}
       </div>
     </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="card-title" style="margin-bottom:0">This Week's Plan</div>
+        <button class="btn btn-sm" style="font-size:12px;padding:5px 12px;background:var(--surface);border:1px solid var(--border)" onclick="openNewPlanModal()">New Plan</button>
+      </div>
+      <div id="dash-weekly-plan">Loading…</div>
+    </div>
     <div class="card"><div class="card-title">Recent Workouts</div><div id="dash-workouts">Loading…</div></div>
   `;
 
@@ -347,7 +355,10 @@ async function renderDashboard() {
     if (cb) { cb.checked = !!todaySupps[k]; applySuppStyle(k, !!todaySupps[k]); }
   });
 
-  const recent = await api.get('/api/workouts?limit=4');
+  const [recent, weekPlan] = await Promise.all([
+    api.get('/api/workouts?limit=4'),
+    Promise.resolve(plan),
+  ]);
   document.getElementById('dash-workouts').innerHTML = recent.length
     ? `<div class="workout-list">${recent.map(w=>workoutCard(w,false)).join('')}</div>`
     : `<div class="empty-state">
@@ -358,6 +369,45 @@ async function renderDashboard() {
           <button class="btn btn-ghost btn-sm" onclick="navigate('lifts')">Start Lifting</button>
         </div>
        </div>`;
+
+  const DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const planEl = document.getElementById('dash-weekly-plan');
+  if (planEl) {
+    planEl.innerHTML = weekPlan.length ? weekPlan.map(p => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="width:36px;font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;flex-shrink:0">${DAYS_SHORT[p.day_of_week-1]||''}</div>
+        <div style="font-size:15px;flex-shrink:0">${getActivityEmoji(p.activity)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:#dcdce0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.activity}</div>
+          <div style="font-size:11px;color:var(--text-3)">${p.duration_mins>0?`${p.duration_mins} min · `:''}${p.intensity}</div>
+        </div>
+        ${p.completed ? '<div style="color:var(--mint);font-size:13px;font-weight:700">✓</div>' : ''}
+      </div>
+    `).join('') : '<p style="color:var(--text-3);font-size:13px">No plan for this week yet.</p>';
+  }
+}
+
+function openNewPlanModal() {
+  const overlay = document.getElementById('new-plan-overlay');
+  const modal = document.getElementById('new-plan-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeNewPlanModal() {
+  const modal = document.getElementById('new-plan-modal');
+  const overlay = document.getElementById('new-plan-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function generateNewPlan(type) {
+  closeNewPlanModal();
+  toast('Generating new plan…');
+  await api.post('/api/plan/regenerate', { type });
+  toast('New plan ready!');
+  renderDashboard();
 }
 
 // ── Streak ────────────────────────────────────────────────
@@ -578,7 +628,10 @@ async function renderLifts() {
   `).join('');
 
   el.innerHTML = `
-    <div class="page-header"><h1>Lifts</h1></div>
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h1>Lifts</h1>
+      <button class="btn btn-sm" style="font-size:12px;padding:5px 12px;background:var(--surface);border:1px solid var(--border)" onclick="openNewPlanModal2()">+ New Plan</button>
+    </div>
     <div style="padding-bottom:100px">
       <div class="tab-bar" style="margin-bottom:18px;width:100%">${planTabs}</div>
       <div id="lifts-list"></div>
@@ -649,6 +702,7 @@ function showLiftsPlan(planId, tabBtn) {
     }).join('');
 
     const safeName = ex.name.replace(/'/g,"\\'");
+    const exJson = JSON.stringify({name:ex.name,sets:setCount,reps:ex.reps,tempo:ex.tempo||'',rest:ex.rest||'',rpe:ex.rpe||'',notes:ex.notes||''}).replace(/"/g,'&quot;');
     return `
       <div class="card" style="margin-bottom:10px;padding:16px 18px" id="lift-${CSS.escape(ex.name)}">
         <div style="display:flex;gap:12px;align-items:flex-start">
@@ -657,11 +711,21 @@ function showLiftsPlan(planId, tabBtn) {
             <div class="lift-ex-target">${setCount} × ${ex.reps}${ex.tempo ? ' · ' + ex.tempo : ''}${ex.rest ? ' · ' + ex.rest + 's rest' : ''}${ex.rpe ? ' · RPE ' + ex.rpe : ''}</div>
             ${ex.notes ? `<div style="font-size:10px;color:#D97706;margin-top:3px;font-family:var(--font-mono)">📝 ${escHtml(ex.notes)}</div>` : ''}
           </div>
-          <div style="text-align:right;flex-shrink:0">
-            ${prHtml}
-            ${lastMax != null
-              ? `<div class="lift-peak">${lastMax}<span style="font-size:11px;color:rgba(0,0,0,0.4);font-family:var(--font-mono)"> kg</span></div>${deltaHtml}`
-              : `<div style="font-size:12px;color:var(--text-3);font-family:var(--font-mono)">No logs</div>`}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+            <div style="text-align:right">
+              ${prHtml}
+              ${lastMax != null
+                ? `<div class="lift-peak">${lastMax}<span style="font-size:11px;color:rgba(0,0,0,0.4);font-family:var(--font-mono)"> kg</span></div>${deltaHtml}`
+                : `<div style="font-size:12px;color:var(--text-3);font-family:var(--font-mono)">No logs</div>`}
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="delete-btn" style="opacity:1;color:#6c6c72" title="Edit exercise" onclick="openEditExercise('${_currentLiftsPlanId}','${safeName}',${exJson})">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="delete-btn" style="opacity:1;color:#6c6c72" title="Remove exercise" onclick="removeExercise('${_currentLiftsPlanId}','${safeName}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
           </div>
         </div>
         ${lastSessionHtml}
@@ -673,7 +737,18 @@ function showLiftsPlan(planId, tabBtn) {
       </div>
     `;
   }).join('');
+
+  const el2 = document.getElementById('lifts-list');
+  if (el2) el2.innerHTML += `
+    <button class="btn" style="width:100%;margin-top:8px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);font-size:13px"
+      onclick="openAddExercise('${plan.id}')">+ Add Exercise to ${escHtml(plan.name)}</button>
+    ${plan._custom !== undefined || !PROGRAMS_BUILTIN.has(plan.id) ? `
+      <button class="btn" style="width:100%;margin-top:6px;background:transparent;border:1px solid rgba(255,77,77,0.2);color:#ff4d4d;font-size:12px"
+        onclick="deletePlan('${plan.id}')">Delete ${escHtml(plan.name)}</button>` : ''}
+  `;
 }
+
+const PROGRAMS_BUILTIN = new Set(['A','B']);
 
 function toggleLiftInput(name, btn) {
   const panel = document.getElementById(`lift-input-${CSS.escape(name)}`);
@@ -718,6 +793,130 @@ async function saveLifts(name, setCount, isTimed = false) {
   showLiftsPlan(_currentLiftsPlanId);
 }
 
+// ── Exercise editing ──────────────────────────────────────
+function openEditExercise(planId, name, ex) {
+  document.getElementById('edit-ex-plan').value = planId;
+  document.getElementById('edit-ex-orig-name').value = name;
+  document.getElementById('edit-ex-name').value = ex.name || name;
+  document.getElementById('edit-ex-sets').value = ex.sets || 3;
+  document.getElementById('edit-ex-reps').value = ex.reps || '';
+  document.getElementById('edit-ex-tempo').value = ex.tempo || '';
+  document.getElementById('edit-ex-rest').value = ex.rest || '';
+  document.getElementById('edit-ex-rpe').value = ex.rpe || '';
+  document.getElementById('edit-ex-notes').value = ex.notes || '';
+  const overlay = document.getElementById('edit-ex-overlay');
+  const modal = document.getElementById('edit-ex-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeEditExercise() {
+  const modal = document.getElementById('edit-ex-modal');
+  const overlay = document.getElementById('edit-ex-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function saveEditExercise() {
+  const planId   = document.getElementById('edit-ex-plan').value;
+  const origName = document.getElementById('edit-ex-orig-name').value;
+  const newName  = document.getElementById('edit-ex-name').value.trim();
+  const sets     = document.getElementById('edit-ex-sets').value;
+  const reps     = document.getElementById('edit-ex-reps').value.trim();
+  const tempo    = document.getElementById('edit-ex-tempo').value.trim();
+  const rest     = document.getElementById('edit-ex-rest').value;
+  const rpe      = document.getElementById('edit-ex-rpe').value.trim();
+  const notes    = document.getElementById('edit-ex-notes').value.trim();
+  await api.patch(`/api/programs/${planId}/exercises/${encodeURIComponent(origName)}`, { newName, sets, reps, tempo, rest, rpe, notes });
+  closeEditExercise();
+  toast('Exercise updated');
+  window._liftsPrograms = await api.get('/api/programs');
+  showLiftsPlan(planId);
+}
+
+function openAddExercise(planId) {
+  document.getElementById('add-ex-plan').value = planId;
+  document.getElementById('add-ex-name').value = '';
+  document.getElementById('add-ex-sets').value = '3';
+  document.getElementById('add-ex-reps').value = '';
+  document.getElementById('add-ex-tempo').value = '';
+  document.getElementById('add-ex-rest').value = '60';
+  document.getElementById('add-ex-rpe').value = '';
+  document.getElementById('add-ex-notes').value = '';
+  const overlay = document.getElementById('add-ex-overlay');
+  const modal = document.getElementById('add-ex-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeAddExercise() {
+  const modal = document.getElementById('add-ex-modal');
+  const overlay = document.getElementById('add-ex-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function saveAddExercise() {
+  const planId = document.getElementById('add-ex-plan').value;
+  const name   = document.getElementById('add-ex-name').value.trim();
+  if (!name) { toast('Enter an exercise name', 'error'); return; }
+  const sets  = document.getElementById('add-ex-sets').value;
+  const reps  = document.getElementById('add-ex-reps').value.trim();
+  const tempo = document.getElementById('add-ex-tempo').value.trim();
+  const rest  = document.getElementById('add-ex-rest').value;
+  const rpe   = document.getElementById('add-ex-rpe').value.trim();
+  const notes = document.getElementById('add-ex-notes').value.trim();
+  await api.post(`/api/programs/${planId}/exercises`, { name, sets, reps, tempo, rest, rpe, notes });
+  closeAddExercise();
+  toast('Exercise added');
+  window._liftsPrograms = await api.get('/api/programs');
+  showLiftsPlan(planId);
+}
+
+async function removeExercise(planId, name) {
+  if (!confirm(`Remove "${name}" from this plan?`)) return;
+  await api.del(`/api/programs/${planId}/exercises/${encodeURIComponent(name)}`);
+  toast('Exercise removed');
+  window._liftsPrograms = await api.get('/api/programs');
+  showLiftsPlan(planId);
+}
+
+function openNewPlanModal2() {
+  document.getElementById('new-plan-name').value = '';
+  const overlay = document.getElementById('new-plan2-overlay');
+  const modal = document.getElementById('new-plan2-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeNewPlanModal2() {
+  const modal = document.getElementById('new-plan2-modal');
+  const overlay = document.getElementById('new-plan2-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function saveNewPlan() {
+  const name = document.getElementById('new-plan-name').value.trim();
+  if (!name) { toast('Enter a plan name', 'error'); return; }
+  const newPlan = await api.post('/api/programs', { name });
+  closeNewPlanModal2();
+  toast(`${name} created!`);
+  window._liftsPrograms = await api.get('/api/programs');
+  renderLifts();
+}
+
+async function deletePlan(planId) {
+  if (!confirm('Delete this plan?')) return;
+  await api.del(`/api/programs/${planId}`);
+  toast('Plan deleted');
+  window._liftsPrograms = await api.get('/api/programs');
+  renderLifts();
+}
+
 // ── Log Workout ───────────────────────────────────────────
 async function renderLog() {
   const el = document.getElementById('view-log');
@@ -731,9 +930,12 @@ async function renderLog() {
         <textarea class="nlp-input" id="nlp-input" placeholder="e.g. did 45 mins Muay Thai, felt strong&#10;1 hour weight training, push day, crushed it&#10;ran 5k this morning, solid pace"></textarea>
       </div>
       <div id="parse-preview" class="parse-preview empty" style="margin-top:10px">Start typing to see how your workout will be parsed…</div>
-      <div style="display:flex;gap:10px;margin-top:14px;align-items:center">
+      <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" id="log-btn">Save Workout</button>
-        <span style="font-size:12px;color:var(--text-3)">Ctrl+Enter</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:12px;color:var(--text-3)">Date:</label>
+          <input type="date" id="log-date" class="edit-input" style="padding:6px 10px;font-size:13px;width:auto" value="${todayStr()}" max="${todayStr()}" />
+        </div>
       </div>
     </div>
 
@@ -779,7 +981,8 @@ async function renderLog() {
     if (!text) { toast('Enter a workout description','error'); return; }
     logBtn.disabled=true; logBtn.textContent='Saving…';
     try {
-      const saved = await api.post('/api/workouts', {text});
+      const date = document.getElementById('log-date')?.value || todayStr();
+      const saved = await api.post('/api/workouts', {text, date});
       toast('Workout logged!');
       input.value=''; preview.className='parse-preview empty'; preview.textContent='Start typing to see how your workout will be parsed…';
       renderLog();
@@ -814,9 +1017,14 @@ function workoutCard(w, showDelete, s) {
           <div id="ex-logger-${w.id}" class="ex-logger hidden"></div>
         ` : ''}
       </div>
-      ${showDelete ? `<button class="delete-btn" onclick="deleteWorkout(${w.id})" title="Delete">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-      </button>` : ''}
+      ${showDelete ? `<div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+        <button class="delete-btn" onclick="openEditWorkout(${w.id},'${escHtml(w.activity||'')}',${w.duration_mins||'null'},'${w.intensity||'medium'}','${w.date||''}',${JSON.stringify(escHtml(w.raw_text||''))})" title="Edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="delete-btn" onclick="deleteWorkout(${w.id})" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>` : ''}
     </div>
   `;
 }
@@ -1092,6 +1300,45 @@ async function lookupExercise() {
   `;
 }
 
+function openEditWorkout(id, activity, duration, intensity, date, rawText) {
+  document.getElementById('edit-workout-id').value = id;
+  document.getElementById('edit-activity').value = activity;
+  document.getElementById('edit-duration').value = duration || '';
+  document.getElementById('edit-intensity').value = intensity || 'medium';
+  document.getElementById('edit-date').value = date || '';
+  document.getElementById('edit-raw-text').value = rawText || '';
+  const overlay = document.getElementById('edit-workout-overlay');
+  const modal = document.getElementById('edit-workout-modal');
+  overlay.style.display = 'block';
+  modal.style.display = 'block';
+  requestAnimationFrame(() => { modal.style.transform = 'translateY(0)'; });
+}
+
+function closeEditWorkout() {
+  const modal = document.getElementById('edit-workout-modal');
+  const overlay = document.getElementById('edit-workout-overlay');
+  modal.style.transform = 'translateY(100%)';
+  setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 350);
+}
+
+async function saveEditWorkout() {
+  const id = document.getElementById('edit-workout-id').value;
+  const activity = document.getElementById('edit-activity').value.trim();
+  const duration_mins = document.getElementById('edit-duration').value;
+  const intensity = document.getElementById('edit-intensity').value;
+  const date = document.getElementById('edit-date').value;
+  const raw_text = document.getElementById('edit-raw-text').value.trim();
+  const updated = await api.put(`/api/workouts/${id}`, { activity, duration_mins: duration_mins ? +duration_mins : null, intensity, date, raw_text });
+  closeEditWorkout();
+  const card = document.getElementById(`we-${id}`);
+  if (card) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = workoutCard(updated, true, Settings.get());
+    card.replaceWith(tmp.firstElementChild);
+  }
+  toast('Workout updated');
+}
+
 async function deleteWorkout(id) {
   await api.del(`/api/workouts/${id}`);
   document.getElementById(`we-${id}`)?.remove();
@@ -1109,68 +1356,99 @@ async function renderWeight() {
   const first  = entries[0];
   const change = latest && first && latest.id!==first.id ? +(latest.weight-first.weight).toFixed(1) : null;
 
+  const heightCm = s.heightCm || null;
+  const latestBMI = latest && heightCm ? +(latest.weight / ((heightCm/100)**2) * (s.weightUnit==='lbs'?0.4536:1) / ((heightCm/100)**2)).toFixed(1) : null;
+  const bmi = latest && heightCm ? +((s.weightUnit==='lbs' ? latest.weight*0.4536 : latest.weight) / ((heightCm/100)**2)).toFixed(1) : null;
+
   el.innerHTML = `
-    <div class="page-header"><h1>Weight</h1><p>Track your fat loss trend over time</p></div>
+    <div class="page-header"><h1>Weight</h1><p>Track your body composition over time</p></div>
     <div class="grid-2" style="margin-bottom:16px">
       <div class="card">
-        <div class="card-title">Current Weight</div>
+        <div class="card-title">Current</div>
         <div class="weight-current">${latest?latest.weight:'—'}<span class="weight-unit">${s.weightUnit}</span></div>
         <div class="weight-change">${change!==null?`<span class="${change<=0?'pos':'neg'}" style="font-size:13.5px;font-weight:600">${change>0?'+':''}${change} ${s.weightUnit} since start</span>`:'<span style="color:var(--text-3);font-size:13px">Log more entries to see change</span>'}</div>
+        ${bmi ? `<div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap">
+          <div style="font-size:12px;color:var(--text-3)">BMI <strong style="color:#dcdce0">${bmi}</strong></div>
+          ${latest.bodyFat!=null?`<div style="font-size:12px;color:var(--text-3)">Body Fat <strong style="color:#dcdce0">${latest.bodyFat}%</strong></div>`:''}
+          ${latest.skeletalMuscleMass!=null?`<div style="font-size:12px;color:var(--text-3)">Skeletal Muscle <strong style="color:#dcdce0">${latest.skeletalMuscleMass}%</strong></div>`:''}
+        </div>` : (!heightCm ? `<div style="font-size:11px;color:var(--text-3);margin-top:8px">Add height in Settings to see BMI</div>` : '')}
       </div>
       <div class="card">
-        <div class="card-title">Log Weight</div>
+        <div class="card-title">Log Entry</div>
         <div class="form-row" style="margin-bottom:10px">
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Weight (${s.weightUnit})</label><input class="form-input" id="w-weight" type="number" step="0.1" placeholder="e.g. 80.5" /></div>
-          <div class="form-group" style="margin-bottom:0"><label class="form-label">Note</label><input class="form-input" id="w-note" placeholder="fasted, PM…" /></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Date</label><input class="form-input" id="w-date" type="date" value="${todayStr()}" max="${todayStr()}" /></div>
         </div>
-        <div class="form-row" style="margin-bottom:12px">
+        <div class="form-row" style="margin-bottom:10px">
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Body Fat %</label><input class="form-input" id="w-bf" type="number" step="0.1" placeholder="e.g. 18.5" /></div>
-          <div class="form-group" style="margin-bottom:0"><label class="form-label">Muscle Mass (${s.weightUnit})</label><input class="form-input" id="w-mm" type="number" step="0.1" placeholder="e.g. 65.2" /></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Skeletal Muscle %</label><input class="form-input" id="w-smm" type="number" step="0.1" placeholder="e.g. 42.3" /></div>
         </div>
+        <div class="form-group" style="margin-bottom:12px"><label class="form-label">Note</label><input class="form-input" id="w-note" placeholder="fasted, PM…" /></div>
         <button class="btn btn-primary btn-sm" id="w-save">Save Entry</button>
       </div>
     </div>
     <div class="card" style="margin-bottom:16px">
-      <div class="card-title">Trend${entries.length>=3?' · dashed = 7-day avg':''}</div>
-      ${entries.length<2?`<div class="empty-state"><div class="empty-state-icon">📈</div><p>Log at least 2 weights to see your trend.</p></div>`:`<div class="chart-container"><canvas id="weight-chart"></canvas></div>`}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Trends</div>
+        <div class="tab-bar" style="font-size:12px">
+          <button class="tab-btn active" onclick="switchWeightMetric('weight',this)">Weight</button>
+          <button class="tab-btn" onclick="switchWeightMetric('bmi',this)">BMI</button>
+          <button class="tab-btn" onclick="switchWeightMetric('bf',this)">Body Fat</button>
+          <button class="tab-btn" onclick="switchWeightMetric('smm',this)">Muscle</button>
+        </div>
+      </div>
+      ${entries.length<2?`<div class="empty-state"><div class="empty-state-icon">📈</div><p>Log at least 2 entries to see trends.</p></div>`:`
+        <div class="chart-container"><canvas id="weight-chart"></canvas></div>
+        <div id="weight-day-detail" style="display:none;margin-top:12px;padding:12px 14px;background:#1e1e24;border-radius:10px;border:1px solid var(--border)"></div>
+        <p style="font-size:11px;color:var(--text-3);margin-top:8px;text-align:center">Tap a point to see full details</p>
+      `}
     </div>
     <div class="card">
       <div class="card-title">History</div>
       <div class="weight-entries">
-        ${entries.length?[...entries].reverse().slice(0,20).map(e=>`
+        ${entries.length?[...entries].reverse().slice(0,30).map(e=>{
+          const eBmi = heightCm ? +((s.weightUnit==='lbs'?e.weight*0.4536:e.weight)/((heightCm/100)**2)).toFixed(1) : null;
+          return `
           <div class="weight-row" id="wr-${e.id}">
-            <div>
-              <div class="weight-row-val">${e.weight} ${e.unit}</div>
-              <div style="font-size:12px;color:#6c6c72;margin-top:2px;display:flex;gap:10px">
-                ${e.bodyFat != null ? `<span>🔥 ${e.bodyFat}% fat</span>` : ''}
-                ${e.muscleMass != null ? `<span>💪 ${e.muscleMass}${e.unit} muscle</span>` : ''}
-                ${e.note ? `<span>${escHtml(e.note)}</span>` : ''}
+            <div style="flex:1;min-width:0">
+              <div class="weight-row-val">${e.weight} ${e.unit}${eBmi?`<span style="font-size:11px;color:var(--text-3);font-weight:400;margin-left:8px">BMI ${eBmi}</span>`:''}</div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:2px">
+                ${e.bodyFat!=null?`<span style="font-size:11px;color:var(--text-3)">Fat ${e.bodyFat}%</span>`:''}
+                ${e.skeletalMuscleMass!=null?`<span style="font-size:11px;color:var(--text-3)">Muscle ${e.skeletalMuscleMass}%</span>`:''}
+                ${e.note?`<span style="font-size:11px;color:var(--text-3)">${escHtml(e.note)}</span>`:''}
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
               <div class="weight-row-date">${fmtDate(e.date)}</div>
               <button class="weight-row-del" onclick="deleteWeight(${e.id})" title="Delete">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
               </button>
             </div>
-          </div>`).join(''):`<div class="empty-state"><p style="color:var(--text-3);font-size:13px">No entries yet</p></div>`}
+          </div>`}).join(''):`<div class="empty-state"><p style="color:var(--text-3);font-size:13px">No entries yet</p></div>`}
       </div>
     </div>
   `;
 
   document.getElementById('w-save')?.addEventListener('click', saveWeight);
   document.getElementById('w-weight')?.addEventListener('keydown', e=>{ if(e.key==='Enter') saveWeight(); });
-  if (entries.length>=2) setTimeout(()=>initWeightChart(entries), 50);
+  if (entries.length>=2) {
+    window._weightEntries = entries;
+    window._weightHeightCm = heightCm;
+    window._weightUnit = s.weightUnit;
+    setTimeout(()=>initWeightChart(entries, 'weight'), 50);
+  }
 }
 
 async function saveWeight() {
   const w = parseFloat(document.getElementById('w-weight')?.value);
   if (!w||isNaN(w)) { toast('Enter a valid weight','error'); return; }
-  const bf = parseFloat(document.getElementById('w-bf')?.value);
-  const mm = parseFloat(document.getElementById('w-mm')?.value);
-  const body = { weight:w, unit:Settings.get().weightUnit, note:document.getElementById('w-note')?.value||'' };
-  if (!isNaN(bf)) body.bodyFat = bf;
-  if (!isNaN(mm)) body.muscleMass = mm;
+  const date = document.getElementById('w-date')?.value || todayStr();
+  const bf   = parseFloat(document.getElementById('w-bf')?.value);
+  const smm  = parseFloat(document.getElementById('w-smm')?.value);
+  const note = document.getElementById('w-note')?.value || '';
+  const body = { weight:w, unit:Settings.get().weightUnit, note, date };
+  if (!isNaN(bf))  body.bodyFat = bf;
+  if (!isNaN(smm)) body.skeletalMuscleMass = smm;
   await api.post('/api/weight', body);
   toast('Weight saved!');
   renderWeight();
@@ -1182,34 +1460,113 @@ async function deleteWeight(id) {
   toast('Entry deleted');
 }
 
-function initWeightChart(entries) {
+function switchWeightMetric(metric, btn) {
+  document.querySelectorAll('#view-weight .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  const entries = window._weightEntries || [];
+  if (entries.length >= 2) initWeightChart(entries, metric);
+}
+
+function initWeightChart(entries, metric='weight') {
   const canvas = document.getElementById('weight-chart');
   if (!canvas) return;
   if (weightChart) { weightChart.destroy(); weightChart=null; }
-  const labels = entries.map(e=>fmtDateShort(e.date));
-  const weights = entries.map(e=>e.weight);
-  const avg = movingAverage(weights,7);
+  const heightCm = window._weightHeightCm;
+  const unit = window._weightUnit || 'kg';
+
+  const configs = {
+    weight: {
+      label: `Weight (${unit})`,
+      color: '#00ff88',
+      bg: 'rgba(0,255,136,0.06)',
+      data: entries.map(e => e.weight),
+      suffix: unit,
+    },
+    bmi: {
+      label: 'BMI',
+      color: '#60a5fa',
+      bg: 'rgba(96,165,250,0.06)',
+      data: entries.map(e => heightCm ? +((unit==='lbs'?e.weight*0.4536:e.weight)/((heightCm/100)**2)).toFixed(1) : null),
+      suffix: '',
+    },
+    bf: {
+      label: 'Body Fat %',
+      color: '#f97316',
+      bg: 'rgba(249,115,22,0.06)',
+      data: entries.map(e => e.bodyFat ?? null),
+      suffix: '%',
+    },
+    smm: {
+      label: 'Skeletal Muscle %',
+      color: '#a78bfa',
+      bg: 'rgba(167,139,250,0.06)',
+      data: entries.map(e => e.skeletalMuscleMass ?? null),
+      suffix: '%',
+    },
+  };
+
+  const cfg = configs[metric] || configs.weight;
+  const validData = cfg.data.filter(v => v != null);
+
+  // Show/hide no-data message without destroying the canvas
+  const noDataEl = document.getElementById('weight-chart-nodata');
+  if (noDataEl) noDataEl.remove();
+  canvas.style.display = validData.length < 2 ? 'none' : 'block';
+  if (validData.length < 2) {
+    const msg = document.createElement('div');
+    msg.id = 'weight-chart-nodata';
+    msg.className = 'empty-state';
+    msg.innerHTML = `<div class="empty-state-icon">📈</div><p>Not enough ${cfg.label} data yet.<br>Log more entries with this metric.</p>`;
+    canvas.parentElement.appendChild(msg);
+    return;
+  }
+
+  const labels = entries.map(e => fmtDateShort(e.date));
+  const avg = movingAverage(cfg.data.map(v => v ?? 0), 7);
+
   Chart.defaults.color = '#9a9aa0';
   Chart.defaults.borderColor = '#ffffff12';
   weightChart = new Chart(canvas, {
-    type:'line',
-    data:{
+    type: 'line',
+    data: {
       labels,
-      datasets:[
-        {label:'Weight',data:weights,borderColor:'#00ff88',backgroundColor:'rgba(0,255,136,0.06)',pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#00ff88',pointBorderColor:'#141417',pointBorderWidth:2,tension:0.2,fill:true},
-        {label:'7-day avg',data:avg,borderColor:'#5a5a61',borderDash:[4,3],borderWidth:2,pointRadius:0,tension:0.3,fill:false},
+      datasets: [
+        { label: cfg.label, data: cfg.data, borderColor: cfg.color, backgroundColor: cfg.bg, pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: cfg.color, pointBorderColor: '#141417', pointBorderWidth: 2, tension: 0.2, fill: true, spanGaps: true },
+        { label: '7-day avg', data: avg, borderColor: '#5a5a61', borderDash: [4,3], borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false, spanGaps: true },
       ]
     },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{position:'top',labels:{boxWidth:12,boxHeight:2,padding:16,font:{size:11,family:'Manrope'},color:'#85858c'}},
-        tooltip:{backgroundColor:'#141417',titleColor:'#00ff88',bodyColor:'#dcdce0',borderColor:'#ffffff14',borderWidth:1,padding:10,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}`}},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      onClick: (_e, elements) => {
+        if (!elements.length) return;
+        const idx = elements[0].index;
+        const e = entries[idx];
+        if (!e) return;
+        const heightCm = window._weightHeightCm;
+        const unit = window._weightUnit || 'kg';
+        const bmiVal = heightCm ? +((unit==='lbs'?e.weight*0.4536:e.weight)/((heightCm/100)**2)).toFixed(1) : null;
+        const detail = document.getElementById('weight-day-detail');
+        if (detail) {
+          detail.innerHTML = `
+            <div style="font-size:13px;font-weight:700;color:#dcdce0;margin-bottom:8px">${fmtDate(e.date)}</div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+              <div><div style="font-size:11px;color:var(--text-3)">Weight</div><div style="font-size:16px;font-weight:700;color:var(--mint)">${e.weight} ${unit}</div></div>
+              ${bmiVal?`<div><div style="font-size:11px;color:var(--text-3)">BMI</div><div style="font-size:16px;font-weight:700;color:#60a5fa">${bmiVal}</div></div>`:''}
+              ${e.bodyFat!=null?`<div><div style="font-size:11px;color:var(--text-3)">Body Fat</div><div style="font-size:16px;font-weight:700;color:#f97316">${e.bodyFat}%</div></div>`:''}
+              ${e.skeletalMuscleMass!=null?`<div><div style="font-size:11px;color:var(--text-3)">Muscle</div><div style="font-size:16px;font-weight:700;color:#a78bfa">${e.skeletalMuscleMass}%</div></div>`:''}
+              ${e.note?`<div><div style="font-size:11px;color:var(--text-3)">Note</div><div style="font-size:13px;color:#dcdce0">${escHtml(e.note)}</div></div>`:''}
+            </div>
+          `;
+          detail.style.display = 'block';
+        }
       },
-      scales:{
-        x:{grid:{color:'#ffffff0a'},ticks:{maxTicksLimit:8,maxRotation:0,font:{size:10,family:'Manrope'},color:'#6c6c72'}},
-        y:{grid:{color:'#ffffff0a'},ticks:{font:{size:10,family:'Manrope'},color:'#6c6c72',callback:v=>v.toFixed(1)}},
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, boxHeight: 2, padding: 16, font: { size: 11, family: 'Manrope' }, color: '#85858c' } },
+        tooltip: { backgroundColor: '#141417', titleColor: cfg.color, bodyColor: '#dcdce0', borderColor: '#ffffff14', borderWidth: 1, padding: 10, callbacks: { label: ctx => ctx.parsed.y != null ? ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}${cfg.suffix}` : '' } },
+      },
+      scales: {
+        x: { grid: { color: '#ffffff0a' }, ticks: { maxTicksLimit: 8, maxRotation: 0, font: { size: 10, family: 'Manrope' }, color: '#6c6c72' } },
+        y: { grid: { color: '#ffffff0a' }, ticks: { font: { size: 10, family: 'Manrope' }, color: '#6c6c72', callback: v => v.toFixed(1) + cfg.suffix } },
       }
     }
   });
@@ -1268,7 +1625,29 @@ async function renderNutritionToday() {
   });
   const histDays = Object.keys(byDay).sort().reverse().filter(d=>d!==today).slice(0,6);
 
+  const waterKey = `water-${today}`;
+  const waterGlasses = +localStorage.getItem(waterKey) || 0;
+  const waterGoal = 8;
+  const waterPct = Math.min(100, Math.round(waterGlasses / waterGoal * 100));
+
   content.innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div class="card-title" style="margin-bottom:2px">💧 Water</div>
+          <div style="font-size:12px;color:var(--text-3)">${waterGlasses} of ${waterGoal} glasses · ~${waterGlasses*250}ml of 2L</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="adjustWater(-1,'${today}')">−</button>
+          <span style="font-size:22px;font-weight:800;min-width:28px;text-align:center">${waterGlasses}</span>
+          <button class="btn btn-primary btn-sm" onclick="adjustWater(1,'${today}')">+ Glass</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:6px">
+        ${Array.from({length:waterGoal},(_,i)=>`<div style="flex:1;height:8px;border-radius:4px;background:${i<waterGlasses?'var(--accent)':'var(--surface-2)'}"></div>`).join('')}
+      </div>
+      ${waterGlasses >= waterGoal ? `<div style="font-size:12px;color:var(--accent);font-weight:600">Target hit! Great work 💪</div>` : `<div style="font-size:12px;color:var(--text-3)">${waterGoal-waterGlasses} more to go. Aim for a glass every 1–2 hours.</div>`}
+    </div>
     <div class="grid-2" style="margin-bottom:16px">
       <div class="card">
         <div class="card-title">Today · ${new Date().toLocaleDateString('en-GB',{weekday:'long',month:'short',day:'numeric'})}</div>
@@ -1276,9 +1655,9 @@ async function renderNutritionToday() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:14px">
             <div><div style="font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1">${tot.cal}</div><div style="font-size:12px;color:var(--text-2);margin-top:3px">of ${s.calorieGoal} kcal</div></div>
             <div style="display:grid;gap:5px;align-content:center">
-              <div style="font-size:12.5px"><span style="color:var(--accent-2);font-weight:600">${tot.p.toFixed(0)}g</span> <span style="color:var(--text-3)">protein</span></div>
-              <div style="font-size:12.5px"><span style="color:var(--amber);font-weight:600">${tot.c.toFixed(0)}g</span> <span style="color:var(--text-3)">carbs</span></div>
-              <div style="font-size:12.5px"><span style="color:var(--red);font-weight:600">${tot.f.toFixed(0)}g</span> <span style="color:var(--text-3)">fat</span></div>
+              <div style="font-size:12.5px"><span style="color:var(--accent-2);font-weight:600">${tot.p.toFixed(0)}g</span> <span style="color:var(--text-3)">/ ${s.proteinGoal}g protein</span></div>
+              <div style="font-size:12.5px"><span style="color:var(--amber);font-weight:600">${tot.c.toFixed(0)}g</span> <span style="color:var(--text-3)">/ ${s.carbGoal}g carbs</span></div>
+              <div style="font-size:12.5px"><span style="color:var(--red);font-weight:600">${tot.f.toFixed(0)}g</span> <span style="color:var(--text-3)">/ ${s.fatGoal}g fat</span></div>
             </div>
           </div>
           <div class="macro-bar">
@@ -1294,8 +1673,9 @@ async function renderNutritionToday() {
         ` : `<div style="color:var(--text-3);font-size:13px;padding:12px 0">Nothing logged yet today.</div>`}
       </div>
       <div class="card">
-        <div class="card-title">${hasEntry ? 'Update Today' : 'Log Today'}</div>
-        <p style="font-size:12px;color:var(--text-3);margin-bottom:14px">Enter your daily totals from your nutrition app.</p>
+        <div class="card-title">Log Nutrition</div>
+        <p style="font-size:12px;color:var(--text-3);margin-bottom:12px">Enter daily totals. Change the date to backdate.</p>
+        <div class="form-group" style="margin-bottom:12px"><label class="form-label">Date</label><input class="form-input" id="n-date" type="date" value="${today}" max="${today}" /></div>
         <div class="form-row" style="margin-bottom:12px">
           <div class="form-group" style="margin-bottom:0"><label class="form-label">kcal</label><input class="form-input" id="n-cal" type="number" placeholder="0" value="${hasEntry?tot.cal:''}" /></div>
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Protein (g)</label><input class="form-input" id="n-pro" type="number" placeholder="0" value="${hasEntry?tot.p.toFixed(0):''}" /></div>
@@ -1304,7 +1684,7 @@ async function renderNutritionToday() {
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Carbs (g)</label><input class="form-input" id="n-car" type="number" placeholder="0" value="${hasEntry?tot.c.toFixed(0):''}" /></div>
           <div class="form-group" style="margin-bottom:0"><label class="form-label">Fat (g)</label><input class="form-input" id="n-fat" type="number" placeholder="0" value="${hasEntry?tot.f.toFixed(0):''}" /></div>
         </div>
-        <button class="btn btn-primary btn-sm" id="n-save">${hasEntry ? 'Update' : 'Save'}</button>
+        <button class="btn btn-primary btn-sm" id="n-save">${hasEntry ? 'Update Today' : 'Save'}</button>
       </div>
     </div>
     ${histDays.length ? `
@@ -1329,16 +1709,25 @@ async function renderNutritionToday() {
   document.getElementById('n-save')?.addEventListener('click', saveDailyMacros);
 }
 
+function adjustWater(delta, date) {
+  const key = `water-${date}`;
+  const current = +localStorage.getItem(key) || 0;
+  const next = Math.max(0, current + delta);
+  localStorage.setItem(key, next);
+  renderNutritionToday();
+}
+
 async function saveDailyMacros() {
-  const cal = +document.getElementById('n-cal')?.value || 0;
-  const pro = +document.getElementById('n-pro')?.value || 0;
-  const car = +document.getElementById('n-car')?.value || 0;
-  const fat = +document.getElementById('n-fat')?.value || 0;
+  const cal  = +document.getElementById('n-cal')?.value || 0;
+  const pro  = +document.getElementById('n-pro')?.value || 0;
+  const car  = +document.getElementById('n-car')?.value || 0;
+  const fat  = +document.getElementById('n-fat')?.value || 0;
+  const date = document.getElementById('n-date')?.value || todayStr();
   if (!cal && !pro) { toast('Enter at least calories or protein','error'); return; }
   const btn = document.getElementById('n-save');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    await api.patch('/api/nutrition/daily', { calories: cal, protein: pro, carbs: car, fat });
+    await api.patch('/api/nutrition/daily', { calories: cal, protein: pro, carbs: car, fat, date });
     toast('Saved!');
     renderNutritionToday();
   } catch { toast('Failed to save','error'); btn.disabled=false; btn.textContent='Save'; }
@@ -1380,7 +1769,7 @@ async function renderMealPlan() {
     <div class="meal-plan-header">
       <div>
         <div style="font-size:14px;font-weight:600">This Week's Meal Plan</div>
-        <div style="font-size:12px;color:var(--text-2);margin-top:2px">Targets ~${s.calorieGoal} kcal/day</div>
+        <div style="font-size:12px;color:var(--text-2);margin-top:2px">~${s.calorieGoal} kcal · ${s.proteinGoal}g P · ${s.carbGoal}g C · ${s.fatGoal}g F</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="regenerateMealPlan()">↺ Regenerate</button>
     </div>
@@ -2114,7 +2503,10 @@ function renderSettings() {
         <div class="settings-title">Goals</div>
         <div class="form-group"><label class="form-label">Daily calorie goal (kcal)</label><input class="form-input" id="s-cal" type="number" value="${s.calorieGoal}" /></div>
         <div class="form-group"><label class="form-label">Daily protein goal (g)</label><input class="form-input" id="s-pro" type="number" value="${s.proteinGoal}" /></div>
+        <div class="form-group"><label class="form-label">Daily carbs goal (g)</label><input class="form-input" id="s-carb" type="number" step="0.5" value="${s.carbGoal}" /></div>
+        <div class="form-group"><label class="form-label">Daily fat goal (g)</label><input class="form-input" id="s-fat" type="number" step="0.5" value="${s.fatGoal}" /></div>
         <div class="form-group"><label class="form-label">Goal weight (${s.weightUnit}) — for progress tracking</label><input class="form-input" id="s-goal" type="number" step="0.1" placeholder="e.g. 165" value="${s.goalWeight||''}" /></div>
+        <div class="form-group"><label class="form-label">Height (cm) — for BMI calculation</label><input class="form-input" id="s-height" type="number" step="1" placeholder="e.g. 178" value="${s.heightCm||''}" /></div>
       </div>
       <div class="divider"></div>
       <div class="settings-section">
@@ -2124,6 +2516,19 @@ function renderSettings() {
         </div>
       </div>
       <button class="btn btn-primary" id="s-save">Save Settings</button>
+      <div class="divider"></div>
+      <div class="settings-section">
+        <div class="settings-title">Data Backup</div>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:14px;line-height:1.6">
+          Download all your workouts, weights, nutrition and exercises as a JSON file. Use Import to restore from a backup.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="exportData()">Export Backup</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">Import Backup</button>
+        </div>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)" />
+        <div id="s-backup-status" style="font-size:12px;color:var(--text-3);margin-top:10px"></div>
+      </div>
       <div class="divider"></div>
       <div class="settings-section">
         <div class="settings-title">Reminders</div>
@@ -2142,7 +2547,8 @@ function renderSettings() {
   `;
   document.getElementById('s-save')?.addEventListener('click',()=>{
     const gw = parseFloat(document.getElementById('s-goal').value);
-    Settings.set({name:document.getElementById('s-name').value.trim(),calorieGoal:+document.getElementById('s-cal').value||2000,proteinGoal:+document.getElementById('s-pro').value||160,weightUnit:document.getElementById('s-unit').value,goalWeight:isNaN(gw)?null:gw});
+    const gh = parseFloat(document.getElementById('s-height').value);
+    Settings.set({name:document.getElementById('s-name').value.trim(),calorieGoal:+document.getElementById('s-cal').value||1600,proteinGoal:+document.getElementById('s-pro').value||180,carbGoal:+document.getElementById('s-carb').value||107.5,fatGoal:+document.getElementById('s-fat').value||50,weightUnit:document.getElementById('s-unit').value,goalWeight:isNaN(gw)?null:gw,heightCm:isNaN(gh)?null:gh});
     toast('Settings saved!');
   });
 
@@ -2171,6 +2577,28 @@ function renderSettings() {
     await api.post('/api/push/test', {});
     toast('Test notification sent!');
   });
+}
+
+function exportData() {
+  window.location.href = '/api/export';
+  toast('Downloading backup…');
+}
+
+async function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('s-backup-status');
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const result = await api.post('/api/import', data);
+    statusEl.textContent = `✓ Imported: ${result.counts.workouts} workouts, ${result.counts.weights} weights, ${result.counts.exercises} exercises`;
+    toast('Backup restored!');
+  } catch {
+    statusEl.textContent = 'Import failed — make sure it\'s a valid backup file.';
+    toast('Import failed', 'error');
+  }
+  input.value = '';
 }
 
 // ── Push Notifications ────────────────────────────────────

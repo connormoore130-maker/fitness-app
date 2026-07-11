@@ -7,13 +7,19 @@ const cron = require('node-cron');
 const app = express();
 const DB_FILE = process.env.DB_PATH || path.join(__dirname, 'db.json');
 
+// Ensure the directory for DB_FILE exists
+try { fs.mkdirSync(path.dirname(DB_FILE), { recursive: true }); } catch {}
+
 // ── Persistence ───────────────────────────────────────────
 const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, programCustomizations:{}, supplements:{}, marathonCompletions:{}, marathonActuals:{}, marathonEdits:{} };
 function readDB() {
   try { return { ...DB_DEFAULTS, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }; }
   catch { return { ...DB_DEFAULTS }; }
 }
-function writeDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data)); }
+function writeDB(data) {
+  try { fs.writeFileSync(DB_FILE, JSON.stringify(data)); }
+  catch (e) { console.error('writeDB failed:', e.message); }
+}
 function nextId(arr) { return arr.length === 0 ? 1 : Math.max(...arr.map(i => i.id)) + 1; }
 
 // ── NLP parser ────────────────────────────────────────────
@@ -198,7 +204,7 @@ function getWeekStart(date) {
   return d.toISOString().split('T')[0];
 }
 
-function generateAdaptivePlan(weekStart, db) {
+function generateAdaptivePlan(weekStart, db, forceType) {
   const cutoff = new Date(weekStart);
   cutoff.setDate(cutoff.getDate() - 14);
   const recent = db.workouts.filter(w => w.date >= cutoff.toISOString().split('T')[0]);
@@ -211,9 +217,11 @@ function generateAdaptivePlan(weekStart, db) {
   const strRatio = total > 0 ? (cats['strength']||0) / total : 0;
 
   const rotation = getWeekRotation(weekStart);
-  const template = maRatio > 0.35 ? MARTIAL_ARTS_TEMPLATES[rotation]
+  const template = forceType === 'strength' ? STRENGTH_TEMPLATES[rotation]
+    : forceType === 'martial-arts' ? MARTIAL_ARTS_TEMPLATES[rotation]
+    : maRatio > 0.35 ? MARTIAL_ARTS_TEMPLATES[rotation]
     : strRatio > 0.35 ? STRENGTH_TEMPLATES[rotation]
-    : MARTIAL_ARTS_TEMPLATES[rotation]; // default to martial arts (matches user profile)
+    : MARTIAL_ARTS_TEMPLATES[rotation];
 
   // Check last week's completion to scale intensity
   const lastWeekStart = new Date(weekStart);
@@ -244,52 +252,53 @@ function generateAdaptivePlan(weekStart, db) {
 
 // ── Meal plan library ─────────────────────────────────────
 // must = fresh/perishable items only. nice = pantry staples to check you have.
+// Macro targets: 1600 cal / 180g protein / 107.5g carbs / 50g fat
+// Per meal: Breakfast ~350cal/40P/25C/10F | Snack x2 ~150cal/20P/10C/5F | Lunch ~450cal/50P/35C/12F | Dinner ~500cal/50P/27C/18F
 const MEALS = {
   breakfast: [
-    { name:'Porridge with Berries & Honey',      calories:380, protein:14, carbs:60, fat:8,  easy:true,  must:['Blueberries','Milk'],                    nice:['Rolled oats','Honey'],           notes:'Mix oats and milk, microwave 3 mins, top with berries and honey.' },
-    { name:'Scrambled Eggs on Toast',             calories:360, protein:24, carbs:36, fat:14, easy:true,  must:['Eggs','Wholemeal bread'],                nice:['Butter'],                        notes:'Whisk eggs, cook slowly in buttered pan on low heat, serve on toast.' },
-    { name:'Greek Yogurt, Granola & Banana',      calories:390, protein:20, carbs:55, fat:8,  easy:true,  must:['Greek yogurt','Banana'],                 nice:['Granola','Honey'],               notes:'Layer yogurt, granola and sliced banana. Drizzle honey.' },
-    { name:'Protein Porridge with Peanut Butter', calories:460, protein:32, carbs:54, fat:14, easy:true,  must:['Banana','Milk'],                         nice:['Rolled oats','Protein powder','Peanut butter'], notes:'Cook oats in milk, stir in protein powder, top with peanut butter and banana.' },
-    { name:'Spinach & Mushroom Omelette',         calories:320, protein:28, carbs:6,  fat:18, easy:true,  must:['Eggs','Spinach','Mushrooms'],            nice:['Olive oil'],                     notes:'Fry mushrooms, add spinach, pour in whisked eggs, fold when just set.' },
-    { name:'Overnight Oats with Chia & Berries',  calories:400, protein:18, carbs:56, fat:10, easy:true,  must:['Mixed berries','Oat milk'],              nice:['Rolled oats','Chia seeds'],      notes:'Mix oats, oat milk and chia seeds in a jar overnight. Top with berries.' },
-    { name:'Smoked Salmon & Eggs on Toast',       calories:420, protein:36, carbs:20, fat:20, easy:true,  must:['Eggs','Smoked salmon','Wholemeal bread'],nice:[],                                notes:'Scramble eggs, serve on toast with smoked salmon.' },
+    { name:'Greek Yogurt Protein Bowl',    calories:340, protein:45, carbs:22, fat:5,  easy:true,  must:['0% Greek yogurt','Mixed berries'],      nice:['Whey protein powder'],           notes:'Mix 200g 0% Greek yogurt with 1 scoop unflavoured whey. Top with 80g berries. No cooking.' },
+    { name:'Protein Pancakes',             calories:360, protein:40, carbs:28, fat:9,  easy:true,  must:['Eggs','Oats'],                          nice:['Protein powder','Cinnamon'],     notes:'Blend 2 eggs + 1 scoop whey + 40g oats + splash of water. Fry small pancakes 2 mins each side.' },
+    { name:'Smoked Salmon Scrambled Eggs', calories:350, protein:42, carbs:4,  fat:18, easy:true,  must:['Eggs','Smoked salmon'],                 nice:['Spinach'],                       notes:'Whisk 3 eggs, scramble slowly in non-stick pan. Serve with 80g smoked salmon and a handful of spinach.' },
+    { name:'Egg & Turkey Scramble',        calories:340, protein:42, carbs:2,  fat:16, easy:true,  must:['Eggs','Lean turkey slices'],            nice:['Spinach','Olive oil'],           notes:'Dice 80g turkey, fry 1 min, add 3 whisked eggs. Scramble together 2–3 mins. Add spinach to wilt.' },
+    { name:'High-Protein Omelette',        calories:360, protein:44, carbs:4,  fat:18, easy:true,  must:['Eggs','Lean ham or turkey'],            nice:['Mushrooms','Spinach'],           notes:'Whisk 3 whole eggs + 2 egg whites. Pour into pan, add 80g ham/turkey and veg, fold when just set.' },
+    { name:'Protein Shake & Boiled Eggs',  calories:330, protein:42, carbs:10, fat:10, easy:true,  must:['Eggs'],                                 nice:['Whey protein powder'],           notes:'Mix 1 scoop whey with water. Pair with 2 pre-boiled eggs. Zero cooking on the day.' },
   ],
   snack: [
-    { name:'Protein Shake & Banana',       calories:280, protein:28, carbs:30, fat:3,  easy:true, must:['Banana'],                      nice:['Protein powder','Milk'],          notes:'Shake protein powder with milk and banana. Ideal post-training.' },
-    { name:'Mixed Nuts & Piece of Fruit',  calories:215, protein:6,  carbs:22, fat:13, easy:true, must:['Apple or banana'],              nice:['Mixed nuts'],                     notes:'Pre-pack in a bag the night before. Zero prep on the day.' },
-    { name:'Greek Yogurt & Honey',         calories:190, protein:16, carbs:22, fat:4,  easy:true, must:['Greek yogurt'],                 nice:['Honey'],                          notes:'Top yogurt with honey.' },
-    { name:'Oatcakes & Peanut Butter',     calories:230, protein:7,  carbs:28, fat:10, easy:true, must:[],                              nice:['Oatcakes','Peanut butter'],        notes:'Spread peanut butter on oatcakes.' },
-    { name:'Apple & Cottage Cheese',       calories:185, protein:18, carbs:20, fat:3,  easy:true, must:['Apple','Cottage cheese'],       nice:[],                                 notes:'Slice apple, serve with cottage cheese.' },
-    { name:'Tuna & Oatcakes',              calories:200, protein:24, carbs:16, fat:4,  easy:true, must:['Tinned tuna'],                  nice:['Oatcakes'],                       notes:'Drain tuna, serve on oatcakes.' },
-    { name:'Hard-Boiled Eggs',             calories:155, protein:13, carbs:1,  fat:10, easy:true, must:['Eggs'],                         nice:[],                                 notes:'Batch-boil 4–5 on Sunday, keep in the fridge all week.' },
-    { name:'Protein Bar',                  calories:220, protein:20, carbs:24, fat:6,  easy:true, must:[],                              nice:['Protein bars'],                    notes:'Keep one in your bag. Failsafe for days when nothing else is prepped.' },
+    { name:'Whey Protein Shake',               calories:130, protein:25, carbs:5,  fat:2,  easy:true, must:[],                                    nice:['Whey protein powder'],               notes:'Mix 1 scoop whey with 300ml water. Quickest possible protein hit — done in 30 seconds. MyProtein Impact Whey is great value.' },
+    { name:'0% Greek Yogurt & Berries',        calories:140, protein:20, carbs:10, fat:1,  easy:true, must:['0% Greek yogurt'],                    nice:['Mixed berries'],                     notes:'150g 0% Greek yogurt (Fage or Arla Protein) with a handful of berries. No prep.' },
+    { name:'Skyr & Berries',                   calories:120, protein:17, carbs:8,  fat:0,  easy:true, must:['Arla Skyr'],                          nice:['Berries'],                           notes:'150g pot of Arla Skyr — thick Icelandic yogurt, even higher protein than Greek yogurt. Available in every major supermarket.' },
+    { name:'Quark with Honey',                 calories:135, protein:20, carbs:9,  fat:0,  easy:true, must:['Quark'],                              nice:['Honey'],                             notes:'200g plain quark (Lidl/Aldi/Tesco) with a small drizzle of honey. Very high protein, almost zero fat.' },
+    { name:'Beef Jerky',                       calories:155, protein:21, carbs:5,  fat:4,  easy:true, must:[],                                    nice:['Beef jerky (Jack Links or similar)'], notes:'40–50g beef jerky — no prep, portable, stays in your bag all week. Jack Links or Peperami Protein are good options.' },
+    { name:'Canned Chicken & Hot Sauce',       calories:150, protein:24, carbs:0,  fat:3,  easy:true, must:['Canned chicken breast'],              nice:['Hot sauce or mustard'],              notes:'Drain 100g canned chicken (Princes or John West), eat cold with a dash of hot sauce. Highest protein-to-calorie ratio on this list.' },
+    { name:'Turkey Slices & Cherry Tomatoes',  calories:140, protein:22, carbs:4,  fat:3,  easy:true, must:['Lean turkey breast slices'],          nice:['Cherry tomatoes'],                   notes:'100g wafer-thin turkey slices from any supermarket + a handful of cherry tomatoes. Zero prep.' },
+    { name:'Beef Jerky & String Cheese',       calories:190, protein:18, carbs:3,  fat:11, easy:true, must:[],                                    nice:['Beef jerky','String cheese or Babybel Light'], notes:'25g beef jerky + 2 Babybel Light or a string cheese. Portable, no prep, good protein hit.' },
+    { name:'Edamame',                          calories:175, protein:17, carbs:11, fat:7,  easy:true, must:['Frozen edamame (shelled)'],           nice:['Sea salt'],                          notes:'Microwave 200g frozen edamame 3 mins. Pinch of sea salt. Surprisingly filling and available in most supermarkets.' },
+    { name:'Smoked Salmon & Cucumber',         calories:160, protein:22, carbs:2,  fat:7,  easy:true, must:['Smoked salmon','Cucumber'],           nice:[],                                    notes:'80g smoked salmon with sliced cucumber. High protein, no cooking, feels like a proper snack.' },
+    { name:'2 Hard-Boiled Eggs',               calories:140, protein:12, carbs:1,  fat:10, easy:true, must:['Eggs'],                              nice:[],                                    notes:'Batch-boil 6–8 eggs on Sunday. Grab 2 any time during the week — no prep needed.' },
+    { name:'Turkey Slices & Rice Cake',        calories:160, protein:19, carbs:12, fat:2,  easy:true, must:['Lean turkey breast slices'],          nice:['Rice cakes'],                        notes:'Stack wafer-thin turkey slices on 2 plain rice cakes. Quick, carb-controlled snack.' },
+    { name:'Protein Bar',                      calories:200, protein:20, carbs:16, fat:6,  easy:true, must:[],                                    nice:['High-protein bar (e.g. PhD Smart Bar, MyBar, Grenade)'], notes:'Keep one in your bag at all times. Non-negotiable failsafe for days when nothing is prepped.' },
+    { name:'Greek Yogurt Protein Shake',       calories:200, protein:30, carbs:12, fat:3,  easy:true, must:['0% Greek yogurt'],                   nice:['Whey protein powder','Berries'],     notes:'Blend 100g yogurt + 1 scoop whey + berries with water. Thicker and more filling than a plain shake.' },
   ],
   lunch: [
-    { name:'Batch Chicken, Rice & Veg', calories:490, protein:44, carbs:50, fat:10, easy:true,  must:['Chicken breast','Broccoli or green beans'],    nice:['Basmati rice','Olive oil'],       notes:'Sunday batch cook. Portion into containers. Heat at work in 2 mins.' },
-    { name:'Salmon, Sweet Potato & Veg',calories:510, protein:40, carbs:46, fat:16, easy:true,  must:['Salmon fillet','Sweet potato','Spinach'],       nice:['Olive oil','Lemon'],              notes:'Bake Sunday, portion out. Eat cold or heated.' },
-    { name:'Chicken & Rice Salad',      calories:480, protein:42, carbs:50, fat:10, easy:true,  must:['Chicken breast','Cucumber','Tomatoes'],         nice:['Basmati rice','Light dressing'],  notes:'Batch-cooked chicken and rice, tossed with veg. Travels well.' },
-    { name:'Tuna Mayo Jacket Potato',   calories:520, protein:38, carbs:62, fat:10, easy:true,  must:['Baking potato','Tinned tuna','Salad leaves'],   nice:['Light mayo'],                     notes:'Microwave potato 8–10 mins, fill with tuna mayo, serve with salad.' },
-    { name:'Chicken & Sweetcorn Wrap',  calories:490, protein:40, carbs:48, fat:12, easy:true,  must:['Chicken breast','Wholemeal wraps'],             nice:['Sweetcorn','Light mayo'],         notes:'Slice batch chicken, layer in wrap with sweetcorn.' },
-    { name:'Smoked Salmon Pasta Salad', calories:500, protein:34, carbs:54, fat:14, easy:false, must:['Smoked salmon','Cucumber'],                     nice:['Wholemeal pasta','Capers','Lemon'], notes:'Cook pasta Sunday, keep in fridge. Toss with salmon and cucumber.',
-      recipe:['Cook pasta, drain and rinse cold.','Tear salmon, dice cucumber.','Toss with lemon juice and olive oil.','Season and serve.'] },
-    { name:'Lentil & Vegetable Soup',   calories:380, protein:22, carbs:52, fat:6,  easy:true,  must:['Carrot','Onion','Crusty bread'],                nice:['Tinned lentils','Vegetable stock'], notes:'Batch on Sunday, portion for 3 days. Reheat in 2 mins.' },
+    { name:'Batch Chicken, Rice & Broccoli',  calories:440, protein:52, carbs:34, fat:8,  easy:true,  must:['Chicken breast','Broccoli'],             nice:['Basmati rice','Soy sauce'],         notes:'Sunday batch: grill 4 chicken breasts, cook rice, steam broccoli. Portion into 4 containers. Reheat in 2 mins.' },
+    { name:'Turkey Mince Rice Bowl',          calories:460, protein:52, carbs:36, fat:10, easy:true,  must:['Turkey mince','Basmati rice'],          nice:['Soy sauce','Garlic','Broccoli'],    notes:'Brown 150g turkey mince with garlic and soy sauce. Serve on rice with a veg portion.' },
+    { name:'Chicken & Veg Wrap',             calories:440, protein:46, carbs:36, fat:10, easy:true,  must:['Chicken breast','Wholemeal wrap'],       nice:['Spinach','Mustard','Cucumber'],     notes:'Use batch-cooked chicken. Slice and wrap with spinach and mustard. Done in 2 mins.' },
+    { name:'Salmon & Asparagus Rice Box',    calories:470, protein:48, carbs:32, fat:14, easy:true,  must:['Salmon fillet','Asparagus'],            nice:['Basmati rice','Lemon'],             notes:'Bake salmon and asparagus 15 mins at 200°C Sunday. Serve with rice. Travels well cold.' },
+    { name:'Greek-Style Chicken Bowl',       calories:430, protein:50, carbs:28, fat:10, easy:true,  must:['Chicken breast','0% Greek yogurt','Cucumber'], nice:['Cherry tomatoes','Lemon','Garlic'], notes:'Mix yogurt with lemon and garlic for a quick tzatziki. Serve over batch chicken with salad.' },
+    { name:'Chicken & Egg Salad Bowl',       calories:420, protein:50, carbs:8,  fat:16, easy:true,  must:['Chicken breast','Eggs','Mixed leaves'], nice:['Cherry tomatoes','Mustard dressing'], notes:'Batch chicken sliced over leaves with 2 halved boiled eggs. Quick mustard dressing.' },
+    { name:'Turkey & Rice Stuffed Pepper',   calories:450, protein:48, carbs:34, fat:10, easy:true,  must:['Turkey mince','Red peppers','Basmati rice'], nice:['Garlic','Tinned tomatoes'],    notes:'Batch on Sunday: cook turkey with rice and tomatoes, stuff into halved peppers, bake 20 mins. Reheat in 2 mins.' },
+    { name:'Beef Burger Bowl',               calories:440, protein:48, carbs:16, fat:18, easy:true,  must:['Lean beef mince (5%)','Mixed leaves','Cherry tomatoes'], nice:['Red onion','Gherkins','Mustard','Low-cal burger sauce'], notes:'Shape 180g 5% beef into a patty, grill 4 mins each side. Crumble over leaves, tomatoes, red onion and gherkins. Drizzle with mustard or light burger sauce. Filling and feels like a treat.' },
   ],
   dinner: [
-    { name:'Chicken Traybake with Veg',             calories:520, protein:46, carbs:38, fat:14, easy:true,  must:['Chicken thighs','Potatoes','Courgette','Red pepper'],  nice:['Smoked paprika','Olive oil'],   notes:'Toss with oil and paprika, roast at 200°C for 40 mins.' },
-    { name:'One-Pot Chicken & Rice',                calories:510, protein:46, carbs:52, fat:10, easy:true,  must:['Chicken thighs','Frozen peas'],                        nice:['Basmati rice','Chicken stock'], notes:'Brown chicken, add rice and stock, simmer covered 20 mins, stir in peas.' },
-    { name:'Baked Salmon with New Potatoes & Peas', calories:540, protein:52, carbs:32, fat:22, easy:true,  must:['Salmon fillet','New potatoes','Frozen peas'],          nice:['Butter','Lemon'],              notes:'Bake salmon 12 mins, boil potatoes, crush peas with butter.' },
-    { name:'Turkey Mince Bolognese',                calories:520, protein:50, carbs:54, fat:10, easy:true,  must:['Turkey mince','Courgette'],                            nice:['Wholemeal spaghetti','Tinned tomatoes'], notes:'Brown mince, add tomatoes, simmer 20 mins, serve with pasta.' },
-    { name:'Sausage & Veg Traybake',                calories:520, protein:28, carbs:46, fat:22, easy:true,  must:['Lean pork sausages','New potatoes','Red pepper'],      nice:[],                               notes:'Roast everything on one tray at 200°C for 35–40 mins.' },
-    { name:'Butter Bean & Tomato Stew',             calories:440, protein:20, carbs:60, fat:10, easy:true,  must:['Spinach','Crusty bread'],                              nice:['Tinned butter beans','Tinned tomatoes'], notes:'Fry onion, add tomatoes and beans, simmer 15 mins, stir in spinach.' },
-    { name:'Healthy Chicken Tikka Masala',          calories:540, protein:50, carbs:44, fat:14, easy:false, must:['Chicken breast'],                                      nice:['Tikka paste','Tinned tomatoes','Basmati rice','Yogurt'], notes:'Brown chicken with tikka paste, add tomatoes, simmer 15 mins, serve with rice.',
-      recipe:['Fry onion 5 mins.','Add tikka paste, cook 1 min.','Add chicken, brown 3–4 mins.','Add tomatoes, simmer 15 mins.','Stir in yogurt off heat. Serve with rice.'] },
-    { name:'Easy Prawn & Tomato Spaghetti',         calories:520, protein:36, carbs:66, fat:10, easy:false, must:['Raw king prawns'],                                     nice:['Wholemeal spaghetti','Tinned tomatoes'], notes:'Cook pasta, fry prawns with garlic, add tomatoes, toss and serve.',
-      recipe:['Cook spaghetti per packet.','Fry garlic and chilli 1 min.','Add prawns, cook until pink.','Add tomatoes, simmer 5 mins.','Toss with pasta and serve.'] },
-    { name:'Smoked Haddock & New Potatoes',         calories:470, protein:46, carbs:44, fat:10, easy:true,  must:['Smoked haddock','New potatoes','Frozen peas'],         nice:['Butter','Lemon'],              notes:'Boil potatoes, poach haddock 6–8 mins, crush peas with butter.' },
-    { name:'Sweet Potato & Lentil Dhal',            calories:480, protein:22, carbs:70, fat:10, easy:false, must:['Sweet potato','Spinach','Naan bread'],                 nice:['Red lentils','Tinned coconut milk','Cumin','Turmeric'], notes:'Simmer lentils, sweet potato and coconut milk 20–25 mins, stir in spinach.',
-      recipe:['Dice sweet potato.','Fry garlic with cumin and turmeric 1 min.','Add lentils, coconut milk and sweet potato.','Simmer 20–25 mins until soft.','Stir in spinach. Serve with naan.'] },
-    { name:'Chicken & Chorizo One-Pot',             calories:560, protein:48, carbs:50, fat:16, easy:false, must:['Chicken thighs','Chorizo','Red pepper'],               nice:['Basmati rice','Tinned tomatoes','Chicken stock'], notes:'Fry chorizo, brown chicken, add everything and simmer covered 20 mins.',
-      recipe:['Fry chorizo until oils release.','Brown chicken in same pan.','Add pepper, rice, tomatoes and stock.','Cover and simmer 20 mins.'] },
+    { name:'Chicken Thigh Traybake',              calories:490, protein:52, carbs:24, fat:18, easy:true,  must:['Chicken thighs (skin off)','Courgette','Red pepper'], nice:['New potatoes','Smoked paprika','Olive oil'], notes:'Toss veg and chicken in oil and paprika. Roast at 200°C 35–40 mins. One pan, no faff.' },
+    { name:'Turkey Mince Bolognese',              calories:480, protein:54, carbs:28, fat:12, easy:true,  must:['Turkey mince','Tinned tomatoes'],        nice:['Courgette spaghetti or small pasta portion','Garlic'], notes:'Brown 200g turkey mince, add garlic and tomatoes, simmer 15 mins. Serve with courgette spaghetti or a small pasta portion.' },
+    { name:'Baked Salmon & Roasted Veg',          calories:500, protein:50, carbs:16, fat:22, easy:true,  must:['Salmon fillet','Courgette','Asparagus'], nice:['Olive oil','Lemon','Garlic'],    notes:'Season salmon and veg with oil, lemon and garlic. Roast together at 200°C for 15 mins.' },
+    { name:'Lean Beef Chilli',                    calories:490, protein:50, carbs:30, fat:16, easy:true,  must:['Lean beef mince (5%)','Tinned tomatoes','Kidney beans'], nice:['Chilli flakes','Cumin','Garlic'], notes:'Brown mince, add spices, tomatoes and beans. Simmer 20 mins. Use 5% beef to keep calories in check. Batch well.' },
+    { name:'Beef Burger Bowl',                    calories:480, protein:52, carbs:20, fat:20, easy:true,  must:['Lean beef mince (5%)','Mixed leaves','Cherry tomatoes'], nice:['Red onion','Gherkins','Mustard','Low-cal burger sauce'], notes:'Shape 200g 5% beef into a patty, grill or pan-fry 4 mins each side. Crumble over a bowl of leaves, tomatoes, red onion and gherkins. Drizzle with mustard or light burger sauce. All the flavour, none of the bun.' },
+    { name:'Chicken Stir-Fry with Egg Noodles',  calories:490, protein:50, carbs:38, fat:12, easy:true,  must:['Chicken breast','Stir-fry veg (frozen pack)'], nice:['Medium egg noodles','Soy sauce','Garlic'], notes:'Slice chicken, stir-fry 5 mins, add frozen veg and noodles. Season with soy and garlic. 10 mins total.' },
+    { name:'Cod with Sweet Potato & Green Beans', calories:460, protein:46, carbs:34, fat:8,  easy:true,  must:['Cod fillet','Sweet potato','Green beans'], nice:['Lemon','Olive oil'],             notes:'Bake cod 15 mins, roast sweet potato cubes, steam beans. Simple and very filling.' },
+    { name:'Turkey & Egg Fried Rice',             calories:500, protein:50, carbs:38, fat:14, easy:true,  must:['Turkey mince','Eggs','Basmati rice'],    nice:['Frozen peas','Soy sauce','Garlic'], notes:'Use leftover rice. Fry turkey with garlic, push aside, scramble 2 eggs, mix in rice and peas. Ready in 10 mins.' },
+    { name:'Chicken Tikka with Cauliflower Rice', calories:470, protein:54, carbs:16, fat:16, easy:true,  must:['Chicken breast','Cauliflower'],          nice:['Tikka paste','0% Greek yogurt','Tinned tomatoes'], notes:'Marinate chicken in tikka paste + yogurt, grill or bake 20 mins. Blitz cauliflower for rice. Low carb and filling.' },
   ],
 };
 
@@ -368,17 +377,26 @@ const PROGRAMS = [
 
 function getMergedPrograms(db) {
   const c = db.programCustomizations || {};
-  return PROGRAMS.map(plan => {
+  const builtIn = PROGRAMS.map(plan => {
     const pc = c[plan.id] || {};
-    const renames = pc.renames || {};
+    const renames  = pc.renames  || {};
     const additions = pc.additions || [];
-    const removals = new Set(pc.removals || []);
+    const removals  = new Set(pc.removals || []);
+    const overrides = pc.overrides || {};
     const exercises = plan.exercises
       .filter(e => !removals.has(e.name))
-      .map(e => renames[e.name] ? { ...e, name: renames[e.name] } : e)
+      .map(e => {
+        const renamed = renames[e.name] ? { ...e, name: renames[e.name] } : e;
+        const ov = overrides[e.name] || {};
+        return { ...renamed, ...ov };
+      })
       .concat(additions.map(e => ({ ...e, _custom: true })));
     return { ...plan, exercises };
   });
+  const custom = Object.entries(c)
+    .filter(([, v]) => v._custom)
+    .map(([id, v]) => ({ id, name: v.name, exercises: (v.additions || []).map(e => ({ ...e, _custom: true })) }));
+  return [...builtIn, ...custom];
 }
 
 function localToday() { return new Date().toLocaleDateString('en-CA'); }
@@ -415,6 +433,22 @@ app.get('/api/workouts', (req, res) => {
   res.json(date
     ? db.workouts.filter(w => w.date === date).reverse()
     : db.workouts.slice().reverse().slice(0, +limit));
+});
+
+app.put('/api/workouts/:id', (req, res) => {
+  const db = readDB();
+  const idx = db.workouts.findIndex(w => w.id === +req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  const { activity, duration_mins, intensity, category, date, raw_text } = req.body;
+  const w = db.workouts[idx];
+  if (activity !== undefined)     w.activity = activity;
+  if (duration_mins !== undefined) w.duration_mins = duration_mins ? +duration_mins : null;
+  if (intensity !== undefined)    w.intensity = intensity;
+  if (category !== undefined)     w.category = category;
+  if (date !== undefined)         w.date = date;
+  if (raw_text !== undefined)     w.raw_text = raw_text;
+  writeDB(db);
+  res.json(w);
 });
 
 app.delete('/api/workouts/:id', (req, res) => {
@@ -566,6 +600,70 @@ app.delete('/api/programs/:planId/exercises/:name', (req, res) => {
   const renames = pc.renames || {};
   const baseKey = Object.keys(renames).find(k => renames[k] === name) || name;
   if (!pc.removals.includes(baseKey)) pc.removals.push(baseKey);
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.patch('/api/programs/:planId/exercises/:name', (req, res) => {
+  const { planId } = req.params;
+  const name = decodeURIComponent(req.params.name);
+  const { sets, reps, tempo, rest, rpe, notes, newName } = req.body;
+  const db = readDB();
+  if (!db.programCustomizations) db.programCustomizations = {};
+  if (!db.programCustomizations[planId]) db.programCustomizations[planId] = {};
+  const pc = db.programCustomizations[planId];
+  // Try to update a custom addition first
+  if (pc.additions) {
+    const ex = pc.additions.find(e => e.name === name);
+    if (ex) {
+      if (sets !== undefined)  ex.sets  = +sets;
+      if (reps !== undefined)  ex.reps  = reps;
+      if (tempo !== undefined) ex.tempo = tempo;
+      if (rest !== undefined)  ex.rest  = rest ? +rest : null;
+      if (rpe !== undefined)   ex.rpe   = rpe;
+      if (notes !== undefined) ex.notes = notes;
+      if (newName?.trim()) ex.name = newName.trim();
+      writeDB(db);
+      return res.json({ ok: true });
+    }
+  }
+  // For base exercises, store overrides
+  if (!pc.overrides) pc.overrides = {};
+  const renames = pc.renames || {};
+  const baseKey = Object.keys(renames).find(k => renames[k] === name) || name;
+  if (!pc.overrides[baseKey]) pc.overrides[baseKey] = {};
+  const ov = pc.overrides[baseKey];
+  if (sets !== undefined)  ov.sets  = +sets;
+  if (reps !== undefined)  ov.reps  = reps;
+  if (tempo !== undefined) ov.tempo = tempo;
+  if (rest !== undefined)  ov.rest  = rest ? +rest : null;
+  if (rpe !== undefined)   ov.rpe   = rpe;
+  if (notes !== undefined) ov.notes = notes;
+  if (newName?.trim()) {
+    if (!pc.renames) pc.renames = {};
+    pc.renames[baseKey] = newName.trim();
+  }
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/programs', (req, res) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+  const db = readDB();
+  if (!db.programCustomizations) db.programCustomizations = {};
+  const existingIds = [...PROGRAMS.map(p => p.id), ...Object.keys(db.programCustomizations).filter(k => db.programCustomizations[k]._custom)];
+  const id = 'custom_' + Date.now();
+  db.programCustomizations[id] = { _custom: true, name: name.trim(), additions: [] };
+  writeDB(db);
+  res.json({ id, name: name.trim(), exercises: [] });
+});
+
+app.delete('/api/programs/:planId', (req, res) => {
+  const { planId } = req.params;
+  if (PROGRAMS.find(p => p.id === planId)) return res.status(400).json({ error: 'cannot delete built-in plan' });
+  const db = readDB();
+  if (db.programCustomizations) delete db.programCustomizations[planId];
   writeDB(db);
   res.json({ ok: true });
 });
@@ -733,8 +831,28 @@ app.post('/api/plan/regenerate', (req, res) => {
   const weekStart = getWeekStart(new Date());
   db.trainingPlan = db.trainingPlan.filter(p => p.week_start !== weekStart);
   writeDB(db);
-  const plan = generateAdaptivePlan(weekStart, readDB());
+  const plan = generateAdaptivePlan(weekStart, readDB(), req.body.type);
   res.json(plan);
+});
+
+// ── Data export / import ──────────────────────────────────
+app.get('/api/export', (_req, res) => {
+  const db = readDB();
+  res.setHeader('Content-Disposition', `attachment; filename="fitness-backup-${new Date().toISOString().split('T')[0]}.json"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.send(JSON.stringify(db, null, 2));
+});
+
+app.post('/api/import', (req, res) => {
+  try {
+    const incoming = req.body;
+    if (!incoming || typeof incoming !== 'object') return res.status(400).json({ error: 'invalid data' });
+    const merged = { ...DB_DEFAULTS, ...incoming };
+    writeDB(merged);
+    res.json({ ok: true, counts: { workouts: merged.workouts.length, exercises: merged.exercises.length, weights: merged.weights.length } });
+  } catch (e) {
+    res.status(400).json({ error: 'failed to import' });
+  }
 });
 
 // ── Meal Plan ─────────────────────────────────────────────
