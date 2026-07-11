@@ -180,7 +180,7 @@ function navigate(view) {
 document.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>navigate(btn.dataset.view)));
 
 function renderView(v) {
-  ({dashboard:renderDashboard,streak:renderStreak,lifts:renderLifts,weight:renderWeight,nutrition:renderNutrition,settings:renderSettings}[v]||(() => {}))();
+  ({dashboard:renderDashboard,streak:renderStreak,lifts:renderLifts,weight:renderWeight,nutrition:renderNutrition,settings:renderSettings,marathon:renderMarathon}[v]||(() => {}))();
 }
 
 // ── Dashboard ─────────────────────────────────────────────
@@ -299,6 +299,23 @@ async function renderDashboard() {
         </div>
       </div>
     </div>
+    ${(() => { const cd = marathonCountdown(); const curWk = currentMarathonWeek(); const w = MARATHON_PLAN.find(w=>w.wk===curWk); return `
+    <div style="background:#141417;border:1px solid #00ff8820;border-radius:18px;padding:20px 24px;margin-bottom:16px;cursor:pointer" onclick="navigate('marathon')">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <div>
+          <div style="font-size:12px;font-weight:600;letter-spacing:.1em;color:#6c6c72;text-transform:uppercase;margin-bottom:6px">London Marathon 2027</div>
+          <div style="display:flex;align-items:baseline;gap:6px">
+            <span style="font-family:'Space Grotesk';font-size:38px;font-weight:700;color:#00ff88;line-height:1">${cd.days}</span>
+            <span style="font-size:13px;color:#6c6c72">days to go</span>
+          </div>
+          <div style="font-size:12px;color:#9a9aa0;margin-top:4px">Week ${curWk}/41 · ${w?w.phase:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:11px;color:#6c6c72;margin-bottom:4px">Today's run</div>
+          ${(() => { const today = new Date().getDay(); const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][today]; const desc = w?w[dayKey]:''; const rt = marathonRunType(desc||'rest'); return `<div style="font-size:11px;font-weight:700;color:${rt.color};background:${rt.color}18;padding:3px 8px;border-radius:999px;display:inline-block">${rt.label}</div><div style="font-size:12px;color:#85858c;margin-top:4px;max-width:160px;text-align:right;line-height:1.4">${(desc||'').split('(')[0].trim()}</div>`; })()}
+        </div>
+      </div>
+    </div>`; })()}
     <div class="card" style="margin-bottom:16px">
       <div class="card-title" style="margin-bottom:16px">Daily Supplements</div>
       <div id="supp-checks" style="display:flex;flex-direction:column;gap:12px">
@@ -1683,6 +1700,225 @@ async function togglePlan(id, currently) {
     check.addEventListener('animationend', () => check.classList.remove('bounce'), { once: true });
   }
   toast(completed ? 'Marked complete ✓' : 'Marked incomplete');
+}
+
+// ── Marathon ──────────────────────────────────────────────
+const MARATHON_RACE_DATE = new Date('2027-04-25T09:00:00');
+
+const MARATHON_PLAN = [
+  { wk:1,  weekOf:'2026-07-13', phase:'Rebuild',              km:20,  cutback:false, mon:'Rest / Muay Thai', tue:'Easy 4 km @ 5:55–6:35/km', wed:'Rest / Muay Thai + strength', thu:'Easy 4 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 4 km @ 5:55–6:35/km', sun:'Long Run 8 km @ 6:15–6:45/km' },
+  { wk:2,  weekOf:'2026-07-20', phase:'Rebuild',              km:23,  cutback:false, mon:'Rest / Muay Thai', tue:'Easy 4.5 km @ 5:55–6:35/km', wed:'Rest / Muay Thai + strength', thu:'Easy 5 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 4.5 km @ 5:55–6:35/km', sun:'Long Run 9 km @ 6:15–6:45/km' },
+  { wk:3,  weekOf:'2026-07-27', phase:'Rebuild',              km:26,  cutback:false, mon:'Rest / Muay Thai', tue:'Easy 5 km @ 5:55–6:35/km', wed:'Rest / Muay Thai + strength', thu:'Easy 5 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 5 km + strength', sun:'Long Run 11 km @ 6:15–6:45/km' },
+  { wk:4,  weekOf:'2026-08-03', phase:'Rebuild',              km:21,  cutback:true,  mon:'Rest / Muay Thai', tue:'Easy 4 km @ 5:55–6:35/km', wed:'Rest / Muay Thai + strength', thu:'Easy 4 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 4 km + strength', sun:'Long Run 9 km @ 6:15–6:45/km' },
+  { wk:5,  weekOf:'2026-08-10', phase:'Rebuild',              km:27,  cutback:false, mon:'Rest / Muay Thai', tue:'Easy 5.5 km + 4 strides @ ~3:55–4:10/km', wed:'Rest / Muay Thai + strength', thu:'Easy 5 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 5.5 km + strength', sun:'Long Run 11 km @ 6:15–6:45/km' },
+  { wk:6,  weekOf:'2026-08-17', phase:'Rebuild',              km:30,  cutback:false, mon:'Rest / Muay Thai', tue:'Easy 5.5 km + 4 strides @ ~3:55–4:10/km', wed:'Rest / Muay Thai + strength', thu:'Easy 6 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 5.5 km + strength', sun:'Long Run 13 km @ 6:15–6:45/km' },
+  { wk:7,  weekOf:'2026-08-24', phase:'Rebuild',              km:33,  cutback:false, mon:'Rest / Muay Thai', tue:'Easy 6.5 km + 4 strides @ ~3:55–4:10/km', wed:'Rest / Muay Thai + strength', thu:'Easy 6 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 6.5 km + strength', sun:'Long Run 14 km @ 6:15–6:45/km' },
+  { wk:8,  weekOf:'2026-08-31', phase:'Rebuild',              km:26,  cutback:true,  mon:'Rest / Muay Thai', tue:'Easy 5 km + 4 strides @ ~3:55–4:10/km', wed:'Rest / Muay Thai + strength', thu:'Easy 5 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 5 km + strength', sun:'Long Run 11 km @ 6:15–6:45/km' },
+  { wk:9,  weekOf:'2026-09-07', phase:'Rebuild',              km:34,  cutback:false, mon:'Rest / Muay Thai', tue:'Easy 6.5 km + 4 strides @ ~3:55–4:10/km', wed:'Rest / Muay Thai + strength', thu:'Easy 6 km @ 5:55–6:35/km', fri:'Rest', sat:'Easy 6.5 km + strength', sun:'Long Run 15 km @ 6:15–6:45/km' },
+  { wk:10, weekOf:'2026-09-14', phase:'Base',                 km:40,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 3 km @ 4:35–4:50/km + 2 km E (~7 km total)', wed:'Easy 5.5 km + strength', thu:'Easy 6 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 5.5 km + strength', sun:'Long Run 16 km @ 6:00–6:30/km' },
+  { wk:11, weekOf:'2026-09-21', phase:'Base',                 km:44,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 4 km @ 4:35–4:50/km + 2 km E (~8 km total)', wed:'Easy 6 km + strength', thu:'Easy 6 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 6 km + strength', sun:'Long Run 18 km @ 6:00–6:30/km' },
+  { wk:12, weekOf:'2026-09-28', phase:'Base',                 km:48,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 4 km @ 4:35–4:50/km + 2 km E (~8.5 km total)', wed:'Easy 7 km + strength', thu:'Easy 6.5 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 7 km + strength', sun:'Long Run 19 km @ 6:00–6:30/km' },
+  { wk:13, weekOf:'2026-10-05', phase:'Base',                 km:38,  cutback:true,  mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 3 km @ 4:35–4:50/km + 2 km E (~6.5 km total)', wed:'Easy 5 km + strength', thu:'Easy 5.5 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 5 km + strength', sun:'Long Run 16 km @ 6:00–6:30/km' },
+  { wk:14, weekOf:'2026-10-12', phase:'Base',                 km:48,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 4 km @ 4:35–4:50/km + 2 km E (~8.5 km total)', wed:'Easy 7 km + strength', thu:'Easy 6.5 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 7 km + strength', sun:'Long Run 19 km @ 6:00–6:30/km' },
+  { wk:15, weekOf:'2026-10-19', phase:'Base',                 km:52,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 6 km @ 4:35–4:50/km + 2 km E (~9.5 km total)', wed:'Easy 7 km + strength', thu:'Easy 7.5 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 7 km + strength', sun:'Long Run 21 km @ 6:00–6:30/km (last 3 km @ MP 4:58/km)' },
+  { wk:16, weekOf:'2026-10-26', phase:'Base',                 km:56,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 6 km @ 4:35–4:50/km + 2 km E (~10 km total)', wed:'Easy 7.5 km + strength', thu:'Easy 8 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 7.5 km + strength', sun:'Long Run 23 km @ 6:00–6:30/km (last 3 km @ MP 4:58/km)' },
+  { wk:17, weekOf:'2026-11-02', phase:'Base',                 km:44,  cutback:true,  mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 4 km @ 4:35–4:50/km + 2 km E (~8 km total)', wed:'Easy 6 km + strength', thu:'Easy 6 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 6 km + strength', sun:'Long Run 18 km @ 6:00–6:30/km' },
+  { wk:18, weekOf:'2026-11-09', phase:'Base',                 km:54,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 6 km @ 4:35–4:50/km + 2 km E (~9.5 km total)', wed:'Easy 7.5 km + strength', thu:'Easy 7.5 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 7.5 km + strength', sun:'Long Run 22 km @ 6:00–6:30/km (last 3 km @ MP 4:58/km)' },
+  { wk:19, weekOf:'2026-11-16', phase:'Base',                 km:58,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 6 km @ 4:35–4:50/km + 2 km E (~10 km total)', wed:'Easy 8 km + strength', thu:'Easy 8 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 8 km + strength', sun:'Long Run 24 km @ 6:00–6:30/km (last 3 km @ MP 4:58/km)' },
+  { wk:20, weekOf:'2026-11-23', phase:'Base',                 km:64,  cutback:false, mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 8 km @ 4:35–4:50/km + 2 km E (~11.5 km total)', wed:'Easy 9 km + strength', thu:'Easy 8.5 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 9 km + strength', sun:'Long Run 26 km @ 6:00–6:30/km (last 3 km @ MP 4:58/km)' },
+  { wk:21, weekOf:'2026-11-30', phase:'Base',                 km:50,  cutback:true,  mon:'Rest / Muay Thai', tue:'TEMPO: 3 km E + 4 km @ 4:35–4:50/km + 2 km E (~8.5 km total)', wed:'Easy 7 km + strength', thu:'Easy 6.5 km + 6 strides', fri:'Rest / Muay Thai', sat:'Easy 7 km + strength', sun:'Long Run 21 km @ 6:00–6:30/km (last 3 km @ MP 4:58/km)' },
+  { wk:22, weekOf:'2026-12-07', phase:'Marathon-Specific',    km:58,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~10 km total)', wed:'Easy 8 km + strength', thu:'Easy 8 km + 6 strides', fri:'Rest', sat:'Easy 8 km + strength', sun:'Long Run 24 km @ 6:00–6:30/km (last 5 km @ MP 4:58/km — rehearse fuel)' },
+  { wk:23, weekOf:'2026-12-14', phase:'Marathon-Specific',    km:64,  cutback:false, mon:'Rest / easy Muay Thai', tue:'MP SESSION: 3 km E + 6 km @ MP 4:58/km + 2 km E (~11 km total)', wed:'Easy 8.5 km + strength', thu:'Easy 9 km + 6 strides', fri:'Rest', sat:'Easy 8.5 km + strength', sun:'Long Run 27 km @ 6:00–6:30/km (last 5 km @ MP — rehearse fuel)' },
+  { wk:24, weekOf:'2026-12-21', phase:'Marathon-Specific',    km:68,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~11.5 km total)', wed:'Easy 9 km + strength', thu:'Easy 9.5 km + 6 strides', fri:'Rest', sat:'Easy 9 km + strength', sun:'Long Run 29 km @ 6:00–6:30/km (last 9 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:25, weekOf:'2026-12-28', phase:'Marathon-Specific',    km:56,  cutback:true,  mon:'Rest / easy Muay Thai', tue:'MP SESSION: 3 km E + 4 km @ MP 4:58/km + 2 km E (~9.5 km total)', wed:'Easy 7.5 km + strength', thu:'Easy 7.5 km + 6 strides', fri:'Rest', sat:'Easy 7.5 km', sun:'Long Run 24 km @ 6:00–6:30/km (last 5 km @ MP — rehearse fuel)' },
+  { wk:26, weekOf:'2027-01-04', phase:'Marathon-Specific',    km:66,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~11.5 km total)', wed:'Easy 9 km + strength', thu:'Easy 8.5 km + 6 strides', fri:'Rest', sat:'Easy 9 km + strength', sun:'Long Run 28 km @ 6:00–6:30/km (last 8 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:27, weekOf:'2027-01-11', phase:'Marathon-Specific',    km:72,  cutback:false, mon:'Rest / easy Muay Thai', tue:'MP SESSION: 3 km E + 8 km @ MP 4:58/km + 2 km E (~12.5 km total)', wed:'Easy 10 km + strength', thu:'Easy 9.5 km + 6 strides', fri:'Rest', sat:'Easy 10 km + strength', sun:'Long Run 30 km @ 6:00–6:30/km (last 9 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:28, weekOf:'2027-01-18', phase:'Marathon-Specific',    km:76,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~13 km total)', wed:'Easy 10.5 km + strength', thu:'Easy 10 km + 6 strides', fri:'Rest', sat:'Easy 10.5 km + strength', sun:'Long Run 32 km @ 6:00–6:30/km (last 10 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:29, weekOf:'2027-01-25', phase:'Marathon-Specific',    km:60,  cutback:true,  mon:'Rest / easy Muay Thai', tue:'MP SESSION: 3 km E + 5 km @ MP 4:58/km + 2 km E (~10 km total)', wed:'Easy 8 km + strength', thu:'Easy 8 km + 6 strides', fri:'Rest', sat:'Easy 8 km', sun:'Long Run 26 km @ 6:00–6:30/km (last 5 km @ MP — rehearse fuel)' },
+  { wk:30, weekOf:'2027-02-01', phase:'Marathon-Specific',    km:74,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~13 km total)', wed:'Easy 10.5 km + strength', thu:'Easy 10 km + 6 strides', fri:'Rest', sat:'Easy 10.5 km + strength', sun:'Long Run 30 km @ 6:00–6:30/km (last 9 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:31, weekOf:'2027-02-08', phase:'Marathon-Specific',    km:78,  cutback:false, mon:'Rest / easy Muay Thai', tue:'MP SESSION: 3 km E + 9 km @ MP 4:58/km + 2 km E (~14 km total)', wed:'Easy 10.5 km + strength', thu:'Easy 11 km + 6 strides', fri:'Rest', sat:'Easy 10.5 km + strength', sun:'Long Run 32 km @ 6:00–6:30/km (last 10 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:32, weekOf:'2027-02-15', phase:'Marathon-Specific',    km:82,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~14.5 km total)', wed:'Easy 11 km + strength', thu:'Easy 11.5 km + 6 strides', fri:'Rest', sat:'Easy 11 km + strength', sun:'Long Run 34 km @ 6:00–6:30/km (last 10 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:33, weekOf:'2027-02-22', phase:'Marathon-Specific',    km:66,  cutback:true,  mon:'Rest / easy Muay Thai', tue:'MP SESSION: 3 km E + 6 km @ MP 4:58/km + 2 km E (~11.5 km total)', wed:'Easy 9 km + strength', thu:'Easy 9.5 km + 6 strides', fri:'Rest', sat:'Easy 9 km', sun:'Long Run 27 km @ 6:00–6:30/km (last 5 km @ MP — rehearse fuel)' },
+  { wk:34, weekOf:'2027-03-01', phase:'Marathon-Specific',    km:80,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~14.5 km total)', wed:'Easy 11 km + strength', thu:'Easy 11.5 km + 6 strides', fri:'Rest', sat:'Easy 11 km + strength', sun:'Long Run 32 km @ 6:00–6:30/km (last 10 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:35, weekOf:'2027-03-08', phase:'Marathon-Specific',    km:85,  cutback:false, mon:'Rest / easy Muay Thai', tue:'MP SESSION: 3 km E + 10 km @ MP 4:58/km + 2 km E (~15.5 km total)', wed:'Easy 12 km + strength', thu:'Easy 11.5 km + 6 strides', fri:'Rest', sat:'Easy 12 km + strength', sun:'Long Run 34 km @ 6:00–6:30/km (last 10 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:36, weekOf:'2027-03-15', phase:'Marathon-Specific',    km:76,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~14 km total)', wed:'Easy 10.5 km + strength', thu:'Easy 11 km + 6 strides', fri:'Rest', sat:'Easy 10.5 km + strength', sun:'Long Run 30 km @ 6:00–6:30/km (last 9 km @ MP 4:58/km — REHEARSE FULL RACE FUEL)' },
+  { wk:37, weekOf:'2027-03-22', phase:'Marathon-Specific',    km:68,  cutback:false, mon:'Rest / easy Muay Thai', tue:'MP SESSION: 3 km E + 8 km @ MP 4:58/km + 2 km E (~12.5 km total)', wed:'Easy 10 km + strength', thu:'Easy 9.5 km + 6 strides', fri:'Rest', sat:'Easy 10 km + strength', sun:'Long Run 26 km @ 6:00–6:30/km (last 5 km @ MP — rehearse fuel)' },
+  { wk:38, weekOf:'2027-03-29', phase:'Marathon-Specific',    km:62,  cutback:false, mon:'Rest / easy Muay Thai', tue:'INTERVALS: 3 km E + 5×1 km @ 4:15–4:30/km (jog 400m recovery) + 2 km E (~11.5 km total)', wed:'Easy 9 km + strength', thu:'Easy 8.5 km + 6 strides', fri:'Rest', sat:'Easy 9 km + strength', sun:'Long Run 24 km @ 6:00–6:30/km (last 5 km @ MP — rehearse fuel)' },
+  { wk:39, weekOf:'2027-04-05', phase:'Taper',                km:48,  cutback:false, mon:'Rest', tue:'MP SESSION: 3 km E + 8 km @ MP 4:58/km + 2 km E (~13 km total)', wed:'Easy 9.5 km + light strength', thu:'Easy 9.5 km + 6 strides', fri:'Rest', sat:'Easy 9 km', sun:'Long Run 20 km @ 6:15/km (relaxed)' },
+  { wk:40, weekOf:'2027-04-12', phase:'Taper',                km:38,  cutback:false, mon:'Rest', tue:'MP SESSION: 3 km E + 5 km @ MP 4:58/km + 2 km E (~10 km total)', wed:'Easy 8 km + light strength', thu:'Easy 8 km + 6 strides', fri:'Rest', sat:'Easy 8 km', sun:'Long Run 14 km @ 6:15/km (relaxed)' },
+  { wk:41, weekOf:'2027-04-19', phase:'Taper',                km:26,  cutback:false, mon:'Rest', tue:'Easy 5 km + 4 strides', wed:'Rest', thu:'Easy 5 km easy shakeout', fri:'Rest — carb load begins', sat:'Recovery 3 km OR rest', sun:'🏆 RACE DAY — London Marathon 42.2 km @ 4:58/km. Even splits. Fuel every 35–40 min.' },
+];
+
+const MARATHON_DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+const MARATHON_DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+function marathonRunType(desc) {
+  const d = desc.toLowerCase();
+  if (d.includes('race day') || d.includes('🏆')) return { type:'race', color:'#00ff88', label:'RACE DAY' };
+  if (d.includes('intervals')) return { type:'intervals', color:'#f59e0b', label:'INTERVALS' };
+  if (d.includes('mp session') || d.includes('@ mp')) return { type:'mp', color:'#3b82f6', label:'MP SESSION' };
+  if (d.includes('tempo')) return { type:'tempo', color:'#8b5cf6', label:'TEMPO' };
+  if (d.includes('long run') || d.includes('lr ')) return { type:'long', color:'#00ff88', label:'LONG RUN' };
+  if (d.includes('rest') && !d.includes('muay')) return { type:'rest', color:'#3a3a40', label:'REST' };
+  if (d.includes('muay thai') || d.includes('easy muay')) return { type:'cross', color:'#6c6c72', label:'CROSS TRAIN' };
+  if (d.includes('easy') || d.includes('rec ')) return { type:'easy', color:'#9a9aa0', label:'EASY' };
+  return { type:'other', color:'#6c6c72', label:'RUN' };
+}
+
+function marathonCountdown() {
+  const now = new Date();
+  const diff = MARATHON_RACE_DATE - now;
+  if (diff <= 0) return { days:0, hours:0, mins:0, done:true };
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  return { days, hours, mins, done:false };
+}
+
+function currentMarathonWeek() {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  for (let i = MARATHON_PLAN.length - 1; i >= 0; i--) {
+    const start = new Date(MARATHON_PLAN[i].weekOf + 'T00:00:00');
+    if (today >= start) return MARATHON_PLAN[i].wk;
+  }
+  return 1;
+}
+
+let _marathonCompletions = {};
+
+async function renderMarathon() {
+  const el = document.getElementById('view-marathon');
+  if (!el) return;
+  el.innerHTML = '<div class="page-header"><h1>Marathon</h1></div>';
+
+  _marathonCompletions = await api.get('/api/marathon-completions');
+  const cd = marathonCountdown();
+  const curWk = currentMarathonWeek();
+
+  el.innerHTML = `
+    <div class="page-header"><h1>London Marathon</h1></div>
+    <div style="height:1px;background:#ffffff14;margin:0 0 28px"></div>
+
+    <!-- Countdown -->
+    <div style="background:#141417;border:1px solid ${cd.done?'#00ff8840':'#ffffff0d'};border-radius:18px;padding:28px 32px;margin-bottom:24px;text-align:center">
+      ${cd.done
+        ? `<div style="font-family:'Space Grotesk';font-size:42px;font-weight:700;color:#00ff88">YOU DID IT! 🏆</div><div style="color:#85858c;margin-top:8px;font-size:14px">London Marathon 2027 — completed</div>`
+        : `<div style="font-size:12px;font-weight:600;letter-spacing:.1em;color:#6c6c72;text-transform:uppercase;margin-bottom:16px">Countdown to Race Day</div>
+           <div style="display:flex;justify-content:center;gap:24px">
+             ${[['days',cd.days],['hours',cd.hours],['mins',cd.mins]].map(([l,v])=>`
+               <div>
+                 <div style="font-family:'Space Grotesk';font-size:52px;font-weight:700;color:#00ff88;line-height:1">${String(v).padStart(2,'0')}</div>
+                 <div style="font-size:12px;color:#6c6c72;margin-top:6px;text-transform:uppercase;letter-spacing:.08em">${l}</div>
+               </div>`).join('<div style="font-family:Space Grotesk;font-size:40px;color:#3a3a40;align-self:flex-start;margin-top:6px">:</div>')}
+           </div>
+           <div style="margin-top:16px;font-size:13px;color:#9a9aa0">Sunday 25 April 2027 · TCS London Marathon · Goal: 3:30:00</div>`}
+    </div>
+
+    <!-- Pace zones quick ref -->
+    <div style="background:#141417;border:1px solid #ffffff0d;border-radius:18px;padding:20px 24px;margin-bottom:24px">
+      <div style="font-size:12px;font-weight:600;letter-spacing:.1em;color:#6c6c72;text-transform:uppercase;margin-bottom:14px">Pace Zones</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">
+        ${[['Easy (E)','5:55–6:35/km','#9a9aa0'],['Long Run (LR)','5:55–6:35/km','#9a9aa0'],['Marathon Pace','4:55–5:00/km','#3b82f6'],['Tempo (T)','4:35–4:50/km','#8b5cf6'],['Intervals (I)','4:15–4:30/km','#f59e0b'],['Strides','3:55–4:10/km','#ef4444']].map(([n,p,c])=>`
+          <div style="background:#0b0b0d;border:1px solid #ffffff0d;border-radius:10px;padding:10px 12px">
+            <div style="font-size:12px;font-weight:600;color:${c}">${n}</div>
+            <div style="font-size:12px;color:#6c6c72;margin-top:2px">${p}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Weekly plan -->
+    <div id="marathon-weeks">
+      ${MARATHON_PLAN.map(w => {
+        const isCurrent = w.wk === curWk;
+        const isPast = w.wk < curWk;
+        const weekDays = MARATHON_DAYS.map(d => ({ day: d, desc: w[d] }));
+        const totalDone = weekDays.filter(d => _marathonCompletions[`${w.wk}-${d.day}`]).length;
+        const runDays = weekDays.filter(d => !d.desc.toLowerCase().startsWith('rest')).length;
+
+        return `<div class="marathon-week ${isCurrent?'current':''}" id="mw-${w.wk}" style="background:#141417;border:1px solid ${isCurrent?'#00ff8840':'#ffffff0d'};border-radius:18px;margin-bottom:12px;overflow:hidden">
+          <button onclick="toggleMarathonWeek(${w.wk})" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:18px 22px;background:none;border:none;cursor:pointer;text-align:left">
+            <div style="display:flex;align-items:center;gap:14px">
+              ${isCurrent ? `<div style="background:#00ff88;color:#06120c;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:999px">THIS WEEK</div>` : ''}
+              ${w.cutback ? `<div style="background:#ffffff0d;color:#6c6c72;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:999px">CUTBACK</div>` : ''}
+              <div>
+                <div style="font-family:'Space Grotesk';font-size:15px;font-weight:600;color:#f4f4f5">Week ${w.wk} <span style="color:#6c6c72;font-weight:400;font-size:13px">· ${new Date(w.weekOf+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span></div>
+                <div style="font-size:12px;color:#6c6c72;margin-top:2px">${w.phase} · ${w.km} km · ${totalDone}/${runDays} sessions done</div>
+              </div>
+            </div>
+            <svg id="mw-chevron-${w.wk}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6c6c72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;transition:transform .2s;${isCurrent?'transform:rotate(180deg)':''}"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div id="mw-body-${w.wk}" style="display:${isCurrent?'block':'none'};padding:0 22px 20px">
+            <div style="height:1px;background:#ffffff0d;margin-bottom:16px"></div>
+            ${weekDays.map(({day, desc}) => {
+              const rt = marathonRunType(desc);
+              const key = `${w.wk}-${day}`;
+              const done = !!_marathonCompletions[key];
+              const isRest = rt.type === 'rest';
+              return `<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #ffffff08">
+                <div style="flex-shrink:0;width:32px;text-align:center;padding-top:2px">
+                  ${isRest
+                    ? `<div style="width:28px;height:28px;border-radius:8px;background:#0b0b0d;border:1px solid #ffffff0d;display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3a3a40" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></div>`
+                    : `<button onclick="toggleMarathonRun('${key}',${w.wk})" style="width:28px;height:28px;border-radius:8px;border:1.5px solid ${done?'#00ff88':'#ffffff1f'};background:${done?'#00ff88':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0">
+                        ${done?`<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5L5 9.5L11 3.5" stroke="#06120c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
+                       </button>`}
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:${rt.color};background:${rt.color}18;padding:2px 7px;border-radius:999px">${rt.label}</span>
+                    <span style="font-size:12px;color:#6c6c72">${MARATHON_DAY_LABELS[MARATHON_DAYS.indexOf(day)]}</span>
+                  </div>
+                  <div style="font-size:13.5px;color:${isRest?'#5a5a61':done?'#85858c':'#dcdce0'};line-height:1.5;${done?'text-decoration:line-through;':''}">${escHtml(desc)}</div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+
+  // Scroll current week into view
+  requestAnimationFrame(() => {
+    document.getElementById(`mw-${curWk}`)?.scrollIntoView({ behavior:'smooth', block:'center' });
+  });
+}
+
+function toggleMarathonWeek(wk) {
+  const body = document.getElementById(`mw-body-${wk}`);
+  const chevron = document.getElementById(`mw-chevron-${wk}`);
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+async function toggleMarathonRun(key, wk) {
+  const done = !_marathonCompletions[key];
+  if (done) _marathonCompletions[key] = true;
+  else delete _marathonCompletions[key];
+  await api.post('/api/marathon-completions', { key, done });
+  // Re-render just this week's body
+  const w = MARATHON_PLAN.find(w => w.wk === wk);
+  if (!w) return;
+  const weekDays = MARATHON_DAYS.map(d => ({ day: d, desc: w[d] }));
+  const totalDone = weekDays.filter(d => _marathonCompletions[`${w.wk}-${d.day}`]).length;
+  const runDays = weekDays.filter(d => !d.desc.toLowerCase().startsWith('rest')).length;
+  // Update counter text
+  const header = document.querySelector(`#mw-${wk} button div div:last-child`);
+  if (header) header.textContent = `${w.phase} · ${w.km} km · ${totalDone}/${runDays} sessions done`;
+  // Update the checkbox
+  const btn = document.querySelector(`[onclick="toggleMarathonRun('${key}',${wk})"]`);
+  if (btn) {
+    btn.style.background = done ? '#00ff88' : 'transparent';
+    btn.style.borderColor = done ? '#00ff88' : '#ffffff1f';
+    btn.innerHTML = done ? `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5L5 9.5L11 3.5" stroke="#06120c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+  }
+  // Strike through text
+  const row = btn?.closest('div[style*="display:flex"]');
+  if (row) {
+    const textEl = row.querySelector('div[style*="font-size:13.5px"]');
+    if (textEl) textEl.style.textDecoration = done ? 'line-through' : '';
+  }
 }
 
 // ── Settings ──────────────────────────────────────────────
