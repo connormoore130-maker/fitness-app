@@ -1786,13 +1786,47 @@ function currentMarathonWeek() {
 }
 
 let _marathonCompletions = {};
+let _marathonActuals = {};
+let _marathonEdits = {};
+
+function marathonCoachingTip(desc, type) {
+  const d = desc.toLowerCase();
+  if (type === 'race') return 'Race day. Even splits — resist going out too fast. Fuel every 35–40 min. Trust the training.';
+  if (type === 'intervals') {
+    const m = desc.match(/(\d+)×(\d+)\s*km/i) || desc.match(/(\d+)\s*x\s*(\d+)\s*km/i);
+    const reps = m ? `${m[1]}×${m[2]} km` : 'the reps';
+    return `Hit ${reps} at 4:15–4:30/km — that's 5k race effort, hard but controlled. Jog 400m between each rep (don't walk — keep the engine warm). Warm up properly with the easy kms first.`;
+  }
+  if (type === 'mp') {
+    const km = desc.match(/(\d+)\s*km\s*@\s*mp/i)?.[1] || desc.match(/(\d+(?:\.\d+)?)\s*km/g)?.[1];
+    return `Marathon pace (4:55–5:00/km) should feel "comfortably uncomfortable" — like a controlled effort you could hold for hours. ${km ? `${km} km at MP today.` : ''} Breathe steadily, run tall, and if you're fuelling on long runs, practise your gel timing here too.`;
+  }
+  if (type === 'tempo') {
+    return 'Tempo = "comfortably hard" — about 1-hour race effort. You can speak a few words but not full sentences. Hold the pace steady; don\'t go out too fast. The easy kms before and after are not optional — they\'re part of the session.';
+  }
+  if (type === 'long') {
+    const hasMP = d.includes('@ mp') || d.includes('@mp');
+    const fuelNote = d.includes('rehearse fuel') || d.includes('race fuel') ? ' 🔑 Practise your exact race fuel today — same gels, same timing, same breakfast.' : '';
+    return `Keep the easy portion genuinely easy (6:00–6:30/km). Your legs should feel fresh at halfway.${hasMP ? ' Finish the last kms at MP (4:55–5:00/km) — this teaches your body to push when fatigued, exactly like race day.' : ''}${fuelNote}`;
+  }
+  if (type === 'easy') {
+    const hasStrides = d.includes('stride');
+    return `Easy effort — fully conversational pace (5:55–6:35/km). If in doubt, go slower.${hasStrides ? ' Strides at the end: 6–8 × 20 sec relaxed fast running (~3:55–4:10/km), full recovery jog between each. Strides sharpen your legs without fatigue.' : ''}`;
+  }
+  if (type === 'cross') return 'Active recovery or Muay Thai. Keep intensity easy — this slot exists to stay fresh, not add fatigue. Strength work here is fine.';
+  if (type === 'rest') return 'Full rest. Eat well, sleep well, let the adaptation happen.';
+  return 'See plan for details.';
+}
 
 async function renderMarathon() {
   const el = document.getElementById('view-marathon');
   if (!el) return;
   el.innerHTML = '<div class="page-header"><h1>Marathon</h1></div>';
 
-  _marathonCompletions = await api.get('/api/marathon-completions');
+  const [comp, actData] = await Promise.all([api.get('/api/marathon-completions'), api.get('/api/marathon-actuals')]);
+  _marathonCompletions = comp;
+  _marathonActuals = actData.actuals || {};
+  _marathonEdits = actData.edits || {};
   const cd = marathonCountdown();
   const curWk = currentMarathonWeek();
 
@@ -1829,52 +1863,7 @@ async function renderMarathon() {
 
     <!-- Weekly plan -->
     <div id="marathon-weeks">
-      ${MARATHON_PLAN.map(w => {
-        const isCurrent = w.wk === curWk;
-        const isPast = w.wk < curWk;
-        const weekDays = MARATHON_DAYS.map(d => ({ day: d, desc: w[d] }));
-        const totalDone = weekDays.filter(d => _marathonCompletions[`${w.wk}-${d.day}`]).length;
-        const runDays = weekDays.filter(d => !d.desc.toLowerCase().startsWith('rest')).length;
-
-        return `<div class="marathon-week ${isCurrent?'current':''}" id="mw-${w.wk}" style="background:#141417;border:1px solid ${isCurrent?'#00ff8840':'#ffffff0d'};border-radius:18px;margin-bottom:12px;overflow:hidden">
-          <button onclick="toggleMarathonWeek(${w.wk})" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:18px 22px;background:none;border:none;cursor:pointer;text-align:left">
-            <div style="display:flex;align-items:center;gap:14px">
-              ${isCurrent ? `<div style="background:#00ff88;color:#06120c;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:999px">THIS WEEK</div>` : ''}
-              ${w.cutback ? `<div style="background:#ffffff0d;color:#6c6c72;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:999px">CUTBACK</div>` : ''}
-              <div>
-                <div style="font-family:'Space Grotesk';font-size:15px;font-weight:600;color:#f4f4f5">Week ${w.wk} <span style="color:#6c6c72;font-weight:400;font-size:13px">· ${new Date(w.weekOf+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span></div>
-                <div style="font-size:12px;color:#6c6c72;margin-top:2px">${w.phase} · ${w.km} km · ${totalDone}/${runDays} sessions done</div>
-              </div>
-            </div>
-            <svg id="mw-chevron-${w.wk}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6c6c72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;transition:transform .2s;${isCurrent?'transform:rotate(180deg)':''}"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div id="mw-body-${w.wk}" style="display:${isCurrent?'block':'none'};padding:0 22px 20px">
-            <div style="height:1px;background:#ffffff0d;margin-bottom:16px"></div>
-            ${weekDays.map(({day, desc}) => {
-              const rt = marathonRunType(desc);
-              const key = `${w.wk}-${day}`;
-              const done = !!_marathonCompletions[key];
-              const isRest = rt.type === 'rest';
-              return `<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #ffffff08">
-                <div style="flex-shrink:0;width:32px;text-align:center;padding-top:2px">
-                  ${isRest
-                    ? `<div style="width:28px;height:28px;border-radius:8px;background:#0b0b0d;border:1px solid #ffffff0d;display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3a3a40" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></div>`
-                    : `<button onclick="toggleMarathonRun('${key}',${w.wk})" style="width:28px;height:28px;border-radius:8px;border:1.5px solid ${done?'#00ff88':'#ffffff1f'};background:${done?'#00ff88':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0">
-                        ${done?`<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5L5 9.5L11 3.5" stroke="#06120c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
-                       </button>`}
-                </div>
-                <div style="flex:1;min-width:0">
-                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:${rt.color};background:${rt.color}18;padding:2px 7px;border-radius:999px">${rt.label}</span>
-                    <span style="font-size:12px;color:#6c6c72">${MARATHON_DAY_LABELS[MARATHON_DAYS.indexOf(day)]}</span>
-                  </div>
-                  <div style="font-size:13.5px;color:${isRest?'#5a5a61':done?'#85858c':'#dcdce0'};line-height:1.5;${done?'text-decoration:line-through;':''}">${escHtml(desc)}</div>
-                </div>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>`;
-      }).join('')}
+      ${MARATHON_PLAN.map(w => renderMarathonWeekHTML(w, curWk)).join('')}
     </div>
   `;
 
@@ -1882,6 +1871,100 @@ async function renderMarathon() {
   requestAnimationFrame(() => {
     document.getElementById(`mw-${curWk}`)?.scrollIntoView({ behavior:'smooth', block:'center' });
   });
+}
+
+function renderMarathonWeekHTML(w, curWk) {
+  const isCurrent = w.wk === curWk;
+  const weekDays = MARATHON_DAYS.map(d => ({ day: d, desc: _marathonEdits[`${w.wk}-${d}`] || w[d] }));
+  const totalDone = weekDays.filter(d => _marathonCompletions[`${w.wk}-${d.day}`]).length;
+  const runDays = weekDays.filter(d => !marathonRunType(d.desc).type.match(/^rest$/)).length;
+
+  return `<div class="marathon-week ${isCurrent?'current':''}" id="mw-${w.wk}" style="background:#141417;border:1px solid ${isCurrent?'#00ff8840':'#ffffff0d'};border-radius:18px;margin-bottom:12px;overflow:hidden">
+    <button onclick="toggleMarathonWeek(${w.wk})" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:18px 22px;background:none;border:none;cursor:pointer;text-align:left">
+      <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+        ${isCurrent ? `<div style="background:#00ff88;color:#06120c;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:999px;flex-shrink:0">THIS WEEK</div>` : ''}
+        ${w.cutback ? `<div style="background:#ffffff0d;color:#6c6c72;font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:999px;flex-shrink:0">CUTBACK</div>` : ''}
+        <div style="min-width:0">
+          <div style="font-family:'Space Grotesk';font-size:15px;font-weight:600;color:#f4f4f5">Week ${w.wk} <span style="color:#6c6c72;font-weight:400;font-size:13px">· ${new Date(w.weekOf+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span></div>
+          <div id="mw-meta-${w.wk}" style="font-size:12px;color:#6c6c72;margin-top:2px">${w.phase} · ${w.km} km · ${totalDone}/${runDays} done</div>
+        </div>
+      </div>
+      <svg id="mw-chevron-${w.wk}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6c6c72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;transition:transform .2s;${isCurrent?'transform:rotate(180deg)':''}"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div id="mw-body-${w.wk}" style="display:${isCurrent?'block':'none'};padding:0 16px 20px">
+      <div style="height:1px;background:#ffffff0d;margin-bottom:12px"></div>
+      ${weekDays.map(({day, desc}) => renderMarathonRunRow(w.wk, day, desc)).join('')}
+    </div>
+  </div>`;
+}
+
+function renderMarathonRunRow(wk, day, desc) {
+  const rt = marathonRunType(desc);
+  const key = `${wk}-${day}`;
+  const done = !!_marathonCompletions[key];
+  const isRest = rt.type === 'rest';
+  const actual = _marathonActuals[key];
+  const tip = marathonCoachingTip(desc, rt.type);
+  const dayLabel = MARATHON_DAY_LABELS[MARATHON_DAYS.indexOf(day)];
+
+  return `<div id="mrun-${key}" style="border-bottom:1px solid #ffffff08;padding:12px 0">
+    <!-- Row header: checkbox + badge + day + expand -->
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="flex-shrink:0">
+        ${isRest
+          ? `<div style="width:28px;height:28px;border-radius:8px;background:#0b0b0d;border:1px solid #ffffff0d;display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3a3a40" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></div>`
+          : `<button onclick="toggleMarathonRun('${key}',${wk})" id="mcheck-${key}" style="width:28px;height:28px;border-radius:8px;border:1.5px solid ${done?'#00ff88':'#ffffff1f'};background:${done?'#00ff88':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0">
+              ${done?`<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5L5 9.5L11 3.5" stroke="#06120c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
+             </button>`}
+      </div>
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="toggleMarathonRunDetail('${key}')">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:${rt.color};background:${rt.color}18;padding:2px 7px;border-radius:999px">${rt.label}</span>
+          <span style="font-size:12px;color:#6c6c72">${dayLabel}</span>
+          ${actual ? `<span style="font-size:10px;color:#00ff88;background:#00ff8814;padding:2px 6px;border-radius:999px">logged</span>` : ''}
+        </div>
+        <div id="mplan-${key}" style="font-size:13.5px;color:${isRest?'#5a5a61':done?'#85858c':'#dcdce0'};line-height:1.5;margin-top:4px;${done&&!actual?'text-decoration:line-through;':''}">${escHtml(desc)}</div>
+      </div>
+      ${!isRest ? `<button onclick="toggleMarathonRunDetail('${key}')" id="mexpand-${key}" style="flex-shrink:0;width:28px;height:28px;border-radius:8px;background:#0b0b0d;border:1px solid #ffffff0d;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .2s">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6c6c72" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>` : ''}
+    </div>
+
+    <!-- Expandable detail panel -->
+    ${!isRest ? `<div id="mdetail-${key}" style="display:none;margin-top:12px;padding:14px;background:#0b0b0d;border:1px solid #ffffff0d;border-radius:12px">
+      <!-- Coaching tip -->
+      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#6c6c72;text-transform:uppercase;margin-bottom:8px">Coach's Notes</div>
+      <div style="font-size:13.5px;color:#9a9aa0;line-height:1.6;margin-bottom:16px">${escHtml(tip)}</div>
+
+      <!-- Edit plan -->
+      <div style="height:1px;background:#ffffff08;margin-bottom:14px"></div>
+      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#6c6c72;text-transform:uppercase;margin-bottom:8px">Edit Plan</div>
+      <textarea id="medit-${key}" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:10px;padding:10px 12px;font-size:13px;color:#dcdce0;line-height:1.5;resize:vertical;min-height:60px;box-sizing:border-box;font-family:Manrope,sans-serif">${escHtml(desc)}</textarea>
+      <button onclick="saveMarathonEdit('${key}',${wk})" style="margin-top:8px;padding:7px 14px;background:transparent;border:1px solid #ffffff1f;border-radius:8px;font-size:12px;font-weight:600;color:#9a9aa0;cursor:pointer">Save edit</button>
+
+      <!-- Log actual -->
+      <div style="height:1px;background:#ffffff08;margin:14px 0"></div>
+      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#6c6c72;text-transform:uppercase;margin-bottom:8px">What I Actually Did</div>
+      ${actual ? `<div style="background:#00ff8808;border:1px solid #00ff8820;border-radius:10px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;gap:16px;margin-bottom:6px">
+          ${actual.duration ? `<span style="font-size:12px;color:#00ff88">⏱ ${escHtml(actual.duration)}</span>` : ''}
+          ${actual.pace ? `<span style="font-size:12px;color:#9a9aa0">⚡ ${escHtml(actual.pace)}</span>` : ''}
+        </div>
+        ${actual.notes ? `<div style="font-size:13px;color:#dcdce0;line-height:1.5">${escHtml(actual.notes)}</div>` : ''}
+      </div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:11px;color:#6c6c72;display:block;margin-bottom:4px">Duration (e.g. 45:30)</label>
+          <input id="mact-dur-${key}" value="${actual?.duration||''}" placeholder="hh:mm" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:8px;padding:8px 10px;font-size:13px;color:#dcdce0;box-sizing:border-box" /></div>
+        <div><label style="font-size:11px;color:#6c6c72;display:block;margin-bottom:4px">Avg pace (/km)</label>
+          <input id="mact-pace-${key}" value="${actual?.pace||''}" placeholder="5:45" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:8px;padding:8px 10px;font-size:13px;color:#dcdce0;box-sizing:border-box" /></div>
+      </div>
+      <textarea id="mact-notes-${key}" placeholder="How did it go? Any issues, how you felt, what you adjusted..." style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:10px;padding:10px 12px;font-size:13px;color:#dcdce0;line-height:1.5;resize:vertical;min-height:70px;box-sizing:border-box;font-family:Manrope,sans-serif">${escHtml(actual?.notes||'')}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button onclick="saveMarathonActual('${key}',${wk})" style="padding:8px 16px;background:#00ff88;border:none;border-radius:8px;font-size:13px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
+        ${actual ? `<button onclick="clearMarathonActual('${key}',${wk})" style="padding:8px 12px;background:transparent;border:1px solid #ffffff1f;border-radius:8px;font-size:12px;color:#6c6c72;cursor:pointer">Clear</button>` : ''}
+      </div>
+    </div>` : ''}
+  </div>`;
 }
 
 function toggleMarathonWeek(wk) {
@@ -1892,33 +1975,87 @@ function toggleMarathonWeek(wk) {
   chevron.style.transform = open ? '' : 'rotate(180deg)';
 }
 
+function toggleMarathonRunDetail(key) {
+  const panel = document.getElementById(`mdetail-${key}`);
+  const btn = document.getElementById(`mexpand-${key}`);
+  if (!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if (btn) btn.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+async function saveMarathonEdit(key, wk) {
+  const desc = document.getElementById(`medit-${key}`)?.value?.trim();
+  if (!desc) return;
+  _marathonEdits[key] = desc;
+  await api.post('/api/marathon-edits', { key, desc });
+  const planEl = document.getElementById(`mplan-${key}`);
+  if (planEl) planEl.textContent = desc;
+  toast('Plan updated');
+}
+
+async function saveMarathonActual(key, wk) {
+  const duration = document.getElementById(`mact-dur-${key}`)?.value?.trim() || '';
+  const pace = document.getElementById(`mact-pace-${key}`)?.value?.trim() || '';
+  const notes = document.getElementById(`mact-notes-${key}`)?.value?.trim() || '';
+  _marathonActuals[key] = { duration, pace, notes, savedAt: new Date().toISOString() };
+  await api.post('/api/marathon-actuals', { key, duration, pace, notes });
+  // Mark complete too
+  if (!_marathonCompletions[key]) { _marathonCompletions[key] = true; await api.post('/api/marathon-completions', { key, done: true }); }
+  // Refresh week meta
+  const [wkNum] = key.split('-');
+  updateMarathonWeekMeta(+wkNum);
+  toast('Session logged!');
+  // Show logged badge
+  const row = document.getElementById(`mrun-${key}`);
+  if (row) {
+    const badge = row.querySelector('span[style*="logged"]');
+    if (!badge) {
+      const badgeWrap = row.querySelector('.flex');
+    }
+  }
+}
+
+async function clearMarathonActual(key, wk) {
+  delete _marathonActuals[key];
+  await api.post('/api/marathon-actuals', { key, notes: null });
+  toast('Cleared');
+  // Re-render the week
+  const w = MARATHON_PLAN.find(w => w.wk === wk);
+  if (w) {
+    const curWk = currentMarathonWeek();
+    const html = renderMarathonWeekHTML(w, curWk);
+    document.getElementById(`mw-${wk}`)?.outerHTML && (document.getElementById(`mw-${wk}`).outerHTML = html);
+    // Re-open the detail
+    document.getElementById(`mw-body-${wk}`).style.display = 'block';
+    document.getElementById(`mw-chevron-${wk}`).style.transform = 'rotate(180deg)';
+  }
+}
+
+function updateMarathonWeekMeta(wk) {
+  const w = MARATHON_PLAN.find(w => w.wk === wk);
+  if (!w) return;
+  const weekDays = MARATHON_DAYS.map(d => ({ day: d, desc: _marathonEdits[`${wk}-${d}`] || w[d] }));
+  const totalDone = weekDays.filter(d => _marathonCompletions[`${wk}-${d.day}`]).length;
+  const runDays = weekDays.filter(d => !marathonRunType(d.desc).type.match(/^rest$/)).length;
+  const meta = document.getElementById(`mw-meta-${wk}`);
+  if (meta) meta.textContent = `${w.phase} · ${w.km} km · ${totalDone}/${runDays} done`;
+}
+
 async function toggleMarathonRun(key, wk) {
   const done = !_marathonCompletions[key];
   if (done) _marathonCompletions[key] = true;
   else delete _marathonCompletions[key];
   await api.post('/api/marathon-completions', { key, done });
-  // Re-render just this week's body
-  const w = MARATHON_PLAN.find(w => w.wk === wk);
-  if (!w) return;
-  const weekDays = MARATHON_DAYS.map(d => ({ day: d, desc: w[d] }));
-  const totalDone = weekDays.filter(d => _marathonCompletions[`${w.wk}-${d.day}`]).length;
-  const runDays = weekDays.filter(d => !d.desc.toLowerCase().startsWith('rest')).length;
-  // Update counter text
-  const header = document.querySelector(`#mw-${wk} button div div:last-child`);
-  if (header) header.textContent = `${w.phase} · ${w.km} km · ${totalDone}/${runDays} sessions done`;
-  // Update the checkbox
-  const btn = document.querySelector(`[onclick="toggleMarathonRun('${key}',${wk})"]`);
+  updateMarathonWeekMeta(wk);
+  const btn = document.getElementById(`mcheck-${key}`);
   if (btn) {
     btn.style.background = done ? '#00ff88' : 'transparent';
     btn.style.borderColor = done ? '#00ff88' : '#ffffff1f';
     btn.innerHTML = done ? `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5L5 9.5L11 3.5" stroke="#06120c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
   }
-  // Strike through text
-  const row = btn?.closest('div[style*="display:flex"]');
-  if (row) {
-    const textEl = row.querySelector('div[style*="font-size:13.5px"]');
-    if (textEl) textEl.style.textDecoration = done ? 'line-through' : '';
-  }
+  const planEl = document.getElementById(`mplan-${key}`);
+  if (planEl && !_marathonActuals[key]) planEl.style.textDecoration = done ? 'line-through' : '';
 }
 
 // ── Settings ──────────────────────────────────────────────

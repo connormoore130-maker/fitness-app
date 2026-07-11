@@ -8,7 +8,7 @@ const app = express();
 const DB_FILE = process.env.DB_PATH || path.join(__dirname, 'db.json');
 
 // ── Persistence ───────────────────────────────────────────
-const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, programCustomizations:{}, supplements:{}, marathonCompletions:{} };
+const DB_DEFAULTS = { workouts:[], weights:[], nutrition:[], trainingPlan:[], exercises:[], mealPlan:[], pushSubscriptions:[], vapid:null, programCustomizations:{}, supplements:{}, marathonCompletions:{}, marathonActuals:{}, marathonEdits:{} };
 function readDB() {
   try { return { ...DB_DEFAULTS, ...JSON.parse(fs.readFileSync(DB_FILE, 'utf8')) }; }
   catch { return { ...DB_DEFAULTS }; }
@@ -606,6 +606,31 @@ app.post('/api/marathon-completions', (req, res) => {
   const { key, done } = req.body;
   if (done) db.marathonCompletions[key] = true;
   else delete db.marathonCompletions[key];
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.get('/api/marathon-actuals', (_req, res) => {
+  const db = readDB();
+  res.json({ actuals: db.marathonActuals || {}, edits: db.marathonEdits || {} });
+});
+
+app.post('/api/marathon-actuals', (req, res) => {
+  const db = readDB();
+  if (!db.marathonActuals) db.marathonActuals = {};
+  const { key, notes, duration, pace } = req.body;
+  if (notes === null) { delete db.marathonActuals[key]; }
+  else { db.marathonActuals[key] = { notes: notes||'', duration: duration||'', pace: pace||'', savedAt: new Date().toISOString() }; }
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/marathon-edits', (req, res) => {
+  const db = readDB();
+  if (!db.marathonEdits) db.marathonEdits = {};
+  const { key, desc } = req.body;
+  if (desc === null) delete db.marathonEdits[key];
+  else db.marathonEdits[key] = desc;
   writeDB(db);
   res.json({ ok: true });
 });
