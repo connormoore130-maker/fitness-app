@@ -416,6 +416,7 @@ let _activeMonth = null;
 let _autoOpenPicker = false;
 let _streakCache = null;
 let _streakDisplayWk = null;
+let _streakTab = 'week'; // 'week' | 'plan'
 
 function habboFigureSVG(leftPct) {
   return `<div id="habbo-runner" style="position:absolute;left:${leftPct}%;top:10px;transform:translateX(-50%);z-index:5;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,255,136,0.18))">
@@ -459,7 +460,58 @@ async function renderStreak() {
   _renderStreakWeek(el, curWk);
 }
 
+function switchStreakTab(tab) {
+  _streakTab = tab;
+  const el = document.getElementById('view-streak');
+  if (!el) return;
+  _renderStreakWeek(el, currentMarathonWeek());
+  if (tab === 'plan') {
+    requestAnimationFrame(() => {
+      document.getElementById(`mw-${currentMarathonWeek()}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+}
+
 function _renderStreakWeek(el, curWk) {
+  const tabBar = `
+    <div style="display:flex;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3px;margin-bottom:20px">
+      <button onclick="switchStreakTab('week')" style="flex:1;padding:9px 12px;border-radius:11px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;background:${_streakTab==='week'?'var(--mint)':'transparent'};color:${_streakTab==='week'?'#06120c':'var(--text-3)'}">This Week</button>
+      <button onclick="switchStreakTab('plan')" style="flex:1;padding:9px 12px;border-radius:11px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;background:${_streakTab==='plan'?'var(--mint)':'transparent'};color:${_streakTab==='plan'?'#06120c':'var(--text-3)'}">Full Plan</button>
+    </div>`;
+
+  if (_streakTab === 'plan') {
+    const cd = marathonCountdown();
+    el.innerHTML = `
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+        <h1 style="margin:0">London Marathon</h1>
+      </div>
+      <div style="height:1px;background:var(--border-mid);margin:0 0 20px"></div>
+      ${tabBar}
+      <div style="background:var(--surface);border:1px solid ${cd.done?'var(--mint-border)':'var(--border)'};border-radius:18px;padding:20px 24px;margin-bottom:20px;text-align:center">
+        ${cd.done
+          ? `<div style="font-family:var(--font-display);font-size:36px;font-weight:700;color:var(--mint)">YOU DID IT!</div>`
+          : `<div style="font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--text-3);text-transform:uppercase;margin-bottom:14px">Race Day Countdown</div>
+             <div style="display:flex;justify-content:center;gap:20px">
+               ${[['days',cd.days],['hours',cd.hours],['mins',cd.mins]].map(([l,v])=>`
+                 <div><div style="font-family:var(--font-display);font-size:44px;font-weight:700;color:var(--mint);line-height:1">${String(v).padStart(2,'0')}</div>
+                 <div style="font-size:10px;color:var(--text-3);margin-top:4px;text-transform:uppercase;letter-spacing:.08em">${l}</div></div>`)
+               .join('<div style="font-family:var(--font-display);font-size:36px;color:var(--surface-3);align-self:flex-start;margin-top:4px">:</div>')}
+             </div>
+             <div style="margin-top:14px;font-size:12px;color:var(--text-3)">25 Apr 2027 · TCS London Marathon · Goal 3:30</div>`}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px">
+        ${[['Easy / Long','5:55–6:35/km','var(--text-2)'],['Marathon','4:55–5:00/km','#3b82f6'],['Tempo','4:35–4:50/km','#8b5cf6'],['Intervals','4:15–4:30/km','#f59e0b']].map(([n,p,c])=>`
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 14px">
+            <div style="font-size:12px;font-weight:700;color:${c}">${n}</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">${p}</div>
+          </div>`).join('')}
+      </div>
+      <div id="marathon-weeks">
+        ${MARATHON_PLAN.map(w => renderMarathonWeekHTML(w, curWk)).join('')}
+      </div>`;
+    return;
+  }
+
   const wk = _streakDisplayWk;
   const w = MARATHON_PLAN.find(w => w.wk === wk);
   if (!w) return;
@@ -494,10 +546,12 @@ function _renderStreakWeek(el, curWk) {
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
-      <h1 style="margin:0">Weekly Run</h1>
+      <h1 style="margin:0">Run</h1>
       ${isCurrentWk ? `<span style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#00ff88;background:#00ff8814;padding:4px 10px;border-radius:999px">THIS WEEK</span>` : ''}
     </div>
-    <div style="height:1px;background:#ffffff14;margin:0 0 20px"></div>
+    <div style="height:1px;background:var(--border-mid);margin:0 0 20px"></div>
+
+    ${tabBar}
 
     <!-- Week nav -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -635,7 +689,7 @@ function _streakDayCard(d, wk) {
         <div style="font-size:13px;color:${d.isRest?'#4a4a52':d.done?'#6c6c72':'#c0c0c8'};line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.desc)}</div>
         ${hasActual ? `<div style="display:flex;gap:10px;margin-top:4px">${actual.km?`<span style="font-size:11px;color:#9a9aa0">📍 ${actual.km} km</span>`:''}${actual.pace?`<span style="font-size:11px;color:#9a9aa0">⚡ ${actual.pace}/km</span>`:''}${(actual.hrs||actual.mins)?`<span style="font-size:11px;color:#9a9aa0">⏱ ${actual.hrs||0}h ${actual.mins||0}m</span>`:''}</div>` : ''}
       </div>
-      ${!d.isRest ? `<button onclick="event.stopPropagation();editStreakDay('${d.day}',${wk})" style="flex-shrink:0;padding:5px 10px;background:transparent;border:1px solid #ffffff14;border-radius:8px;font-size:11px;font-weight:600;color:#6c6c72;cursor:pointer">Edit</button>` : ''}
+      <button onclick="event.stopPropagation();editStreakDay('${d.day}',${wk})" style="flex-shrink:0;padding:5px 10px;background:transparent;border:1px solid var(--border-mid);border-radius:8px;font-size:11px;font-weight:600;color:var(--text-3);cursor:pointer">Edit</button>
     </div>
     <!-- Inline log panel -->
     <div id="slog-${d.key}" style="display:none;padding:0 16px 16px">
@@ -659,12 +713,17 @@ function _streakDayCard(d, wk) {
     </div>
     <!-- Inline edit panel -->
     <div id="sedit-${d.key}" style="display:none;padding:0 16px 16px">
-      <div style="height:1px;background:#ffffff08;margin-bottom:14px"></div>
-      <label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px">Edit session</label>
-      <textarea id="sedit-txt-${d.key}" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:10px 12px;font-size:13px;color:#dcdce0;resize:vertical;min-height:56px;box-sizing:border-box;font-family:Manrope,sans-serif">${escHtml(d.desc)}</textarea>
+      <div style="height:1px;background:var(--border);margin-bottom:14px"></div>
+      <label style="font-size:10px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:8px">Change session type</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        ${['Rest','Rest / Muay Thai','Easy Run','Long Run','Tempo Run','Cross Train','Strength'].map(opt =>
+          `<button onclick="document.getElementById('sedit-txt-${d.key}').value='${opt}'" style="padding:5px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;font-size:11px;font-weight:600;color:var(--text-2);cursor:pointer">${opt}</button>`
+        ).join('')}
+      </div>
+      <textarea id="sedit-txt-${d.key}" style="width:100%;background:var(--bg);border:1px solid var(--border-input);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);resize:vertical;min-height:52px;box-sizing:border-box;font-family:Manrope,sans-serif">${escHtml(d.desc)}</textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
-        <button onclick="saveStreakEdit('${d.day}',${wk})" style="padding:8px 16px;background:#00ff88;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
-        <button onclick="closeStreakEdit('${d.day}',${wk})" style="padding:8px 12px;background:transparent;border:1px solid #ffffff1f;border-radius:8px;font-size:12px;color:#6c6c72;cursor:pointer">Cancel</button>
+        <button onclick="saveStreakEdit('${d.day}',${wk})" style="flex:1;padding:9px 16px;background:var(--mint);border:none;border-radius:8px;font-size:13px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
+        <button onclick="closeStreakEdit('${d.day}',${wk})" style="padding:9px 14px;background:transparent;border:1px solid var(--border-mid);border-radius:8px;font-size:12px;color:var(--text-3);cursor:pointer">Cancel</button>
       </div>
     </div>
   </div>`;
@@ -688,7 +747,6 @@ function editStreakDay(day, wk) {
 }
 
 function closeStreakEdit(day, wk) {
-  document.getElementById(`sedit-${wk}-${day}`)?.style && (document.getElementById(`sedit-${wk}-${day}`).style.display = 'none');
   const panel = document.getElementById(`sedit-${wk}-${day}`);
   if (panel) panel.style.display = 'none';
 }
