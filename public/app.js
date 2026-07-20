@@ -417,17 +417,44 @@ let _autoOpenPicker = false;
 let _streakCache = null;
 let _streakDisplayWk = null;
 
-function pixelRunnerSVG() {
-  return `<svg width="20" height="28" viewBox="0 0 20 28" style="animation:runner-bounce 0.38s ease-in-out infinite alternate;display:block">
-    <rect x="7" y="0" width="6" height="6" rx="1" fill="#00ff88"/>
-    <rect x="8" y="7" width="4" height="6" fill="#e0e0e6"/>
-    <rect x="3" y="8" width="5" height="2" fill="#e0e0e6"/>
-    <rect x="12" y="10" width="5" height="2" fill="#e0e0e6"/>
-    <rect x="7" y="13" width="2" height="6" fill="#e0e0e6"/>
-    <rect x="4" y="17" width="4" height="2" fill="#9a9aa0"/>
-    <rect x="9" y="13" width="2" height="5" fill="#e0e0e6"/>
-    <rect x="11" y="16" width="4" height="2" fill="#9a9aa0"/>
-  </svg>`;
+function pixelRunnerSVG(pct, animating) {
+  // Two-frame pixel art runner: alternates at ~8fps for authentic sprite feel
+  // pct = 0-100, position along track
+  // Frame A: right leg forward / left arm forward
+  // Frame B: left leg forward / right arm forward
+  const frameA = `
+    <rect x="8" y="0" width="6" height="6" rx="1" fill="#00ff88"/>
+    <rect x="9" y="7" width="4" height="6" fill="#e2e2e8"/>
+    <rect x="2" y="9" width="7" height="2" fill="#e2e2e8"/>
+    <rect x="2" y="11" width="2" height="3" fill="#e2e2e8"/>
+    <rect x="13" y="7" width="5" height="2" fill="#e2e2e8"/>
+    <rect x="10" y="13" width="3" height="7" fill="#e2e2e8"/>
+    <rect x="12" y="19" width="5" height="2" fill="#9a9aa0"/>
+    <rect x="7" y="13" width="3" height="5" fill="#e2e2e8"/>
+    <rect x="3" y="17" width="5" height="2" fill="#9a9aa0"/>`;
+  const frameB = `
+    <rect x="8" y="0" width="6" height="6" rx="1" fill="#00ff88"/>
+    <rect x="9" y="7" width="4" height="6" fill="#e2e2e8"/>
+    <rect x="13" y="9" width="7" height="2" fill="#e2e2e8"/>
+    <rect x="18" y="11" width="2" height="3" fill="#e2e2e8"/>
+    <rect x="4" y="7" width="5" height="2" fill="#e2e2e8"/>
+    <rect x="7" y="13" width="3" height="7" fill="#e2e2e8"/>
+    <rect x="4" y="19" width="5" height="2" fill="#9a9aa0"/>
+    <rect x="10" y="13" width="3" height="5" fill="#e2e2e8"/>
+    <rect x="12" y="17" width="5" height="2" fill="#9a9aa0"/>`;
+  return `<div id="pixel-runner" style="
+    position:absolute;
+    left:${pct}%;
+    bottom:18px;
+    transform:translateX(-50%);
+    transition:left 0.7s cubic-bezier(0.23,1,0.32,1);
+    z-index:10;
+    pointer-events:none">
+    <svg width="22" height="24" viewBox="0 0 22 24">
+      <g style="animation:runner-frame-a 0.22s steps(1) infinite">${frameA}</g>
+      <g style="animation:runner-frame-b 0.22s steps(1) infinite">${frameB}</g>
+    </svg>
+  </div>`;
 }
 
 async function renderStreak() {
@@ -483,7 +510,8 @@ function _renderStreakWeek(el, curWk) {
 
   el.innerHTML = `
     <style>
-      @keyframes runner-bounce { from { transform:translateY(0) } to { transform:translateY(-4px) } }
+      @keyframes runner-frame-a { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+      @keyframes runner-frame-b { 0%,49%{opacity:0} 50%,100%{opacity:1} }
       @keyframes node-pop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
       .node-done { animation: node-pop 0.3s ease-out; }
     </style>
@@ -525,26 +553,29 @@ function _renderStreakWeek(el, curWk) {
       ${weekComplete ? `<div style="text-align:center;margin-bottom:12px;font-size:13px;font-weight:700;color:#00ff88">🏆 Week complete!</div>` : ''}
 
       <!-- Runner + track container -->
-      <div style="position:relative;height:72px;margin:0 8px">
-        <!-- Track line -->
-        <div style="position:absolute;top:52px;left:14px;right:14px;height:3px;background:#1e1e24;border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${weekComplete?100:runnerPos<0?0:Math.round((runnerPos/6)*100)}%;background:linear-gradient(90deg,#00ff88,#00cc6a);border-radius:2px;transition:width 0.6s cubic-bezier(0.23,1,0.32,1)"></div>
-        </div>
+      <div style="position:relative;height:80px;margin:0 10px">
+        <!-- Track line background -->
+        <div style="position:absolute;top:56px;left:0;right:0;height:4px;background:#1e1e24;border-radius:2px"></div>
+        <!-- Track fill (progress) -->
+        <div style="position:absolute;top:56px;left:0;height:4px;width:${weekComplete?100:runnerPos<0?0:Math.round((runnerPos/6)*100)}%;background:linear-gradient(90deg,#00ff88,#00cc6a);border-radius:2px;transition:width 0.7s cubic-bezier(0.23,1,0.32,1)"></div>
+
+        <!-- Animated pixel runner (single element, moves via left%) -->
+        ${weekComplete
+          ? `<div style="position:absolute;right:-14px;bottom:10px;font-size:22px">🏆</div>`
+          : pixelRunnerSVG(runnerPos < 0 ? 0 : Math.round((runnerPos/6)*100))}
 
         <!-- Day nodes -->
         ${days.map((d, i) => {
-          const x = `calc(${(i/6)*100}% - 12px)`;
-          const isRunner = !weekComplete && i === runnerPos;
-          return `<div style="position:absolute;left:${x};display:flex;flex-direction:column;align-items:center;gap:0">
-            ${isRunner ? `<div style="margin-bottom:2px">${pixelRunnerSVG()}</div>` : `<div style="height:22px"></div>`}
-            <div id="track-node-${d.key}" onclick="openDayLog('${d.day}',${wk})" style="width:24px;height:24px;border-radius:50%;background:${d.done&&!d.isRest?'#00ff88':d.isRest?'#1a1a20':'#1e1e24'};border:2px solid ${d.done&&!d.isRest?'#00ff88':d.isRest?'#2a2a30':'#3a3a40'};cursor:${d.isRest?'default':'pointer'};display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:${d.done&&!d.isRest?'0 0 10px #00ff8840':'none'}">
+          const leftPct = (i/6)*100;
+          return `<div style="position:absolute;left:${leftPct}%;transform:translateX(-50%);top:44px">
+            <div id="track-node-${d.key}" onclick="${d.isRest?'':(`openDayLog('${d.day}',${wk})`)}" style="width:26px;height:26px;border-radius:50%;background:${d.done&&!d.isRest?'#00ff88':d.isRest?'#141417':'#1e1e24'};border:2px solid ${d.done&&!d.isRest?'#00ff88':d.isRest?'#2a2a30':'#3a3a40'};cursor:${d.isRest?'default':'pointer'};display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:${d.done&&!d.isRest?'0 0 12px #00ff8860':'none'}">
               ${d.isRest?'<svg width="8" height="8" viewBox="0 0 8 8"><rect x="1" y="1" width="2" height="5" fill="#3a3a40" rx="1"/><rect x="5" y="1" width="2" height="5" fill="#3a3a40" rx="1"/></svg>':d.done?'<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="#06120c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
             </div>
           </div>`;
         }).join('')}
 
         <!-- Finish flag -->
-        ${weekComplete ? `<div style="position:absolute;right:-8px;top:36px;font-size:20px">🏆</div>` : `<div style="position:absolute;right:-8px;top:38px;font-size:18px">🏁</div>`}
+        ${!weekComplete ? `<div style="position:absolute;right:-16px;top:42px;font-size:20px;line-height:1">🏁</div>` : ''}
       </div>
 
       <!-- Day labels -->
