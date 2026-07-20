@@ -902,7 +902,7 @@ function showLiftsPlan(planId, tabBtn) {
     }).join('');
 
     const safeName = ex.name.replace(/'/g,"\\'");
-    const exJson = JSON.stringify({name:ex.name,sets:setCount,reps:ex.reps,tempo:ex.tempo||'',rest:ex.rest||'',rpe:ex.rpe||'',notes:ex.notes||''}).replace(/"/g,'&quot;');
+    const exJson = JSON.stringify({name:ex.name,sets:setCount,reps:ex.reps,tempo:ex.tempo||'',rest:ex.rest||'',rpe:ex.rpe||'',notes:ex.notes||'',timed:!!ex.timed}).replace(/"/g,'&quot;');
     return `
       <div class="card" style="margin-bottom:10px;padding:16px 18px" id="lift-${CSS.escape(ex.name)}">
         <div style="display:flex;gap:12px;align-items:flex-start">
@@ -994,6 +994,16 @@ async function saveLifts(name, setCount, isTimed = false) {
 }
 
 // ── Exercise editing ──────────────────────────────────────
+function setExType(prefix, type) {
+  const isWeighted = type === 'weighted';
+  document.getElementById(`${prefix}-ex-type-weighted`).style.background = isWeighted ? '#00ff88' : '#1e1e22';
+  document.getElementById(`${prefix}-ex-type-weighted`).style.color = isWeighted ? '#06120c' : '#6c6c72';
+  document.getElementById(`${prefix}-ex-type-tempo`).style.background = isWeighted ? '#1e1e22' : '#00ff88';
+  document.getElementById(`${prefix}-ex-type-tempo`).style.color = isWeighted ? '#6c6c72' : '#06120c';
+  document.getElementById(`${prefix}-ex-reps-field`).style.display = isWeighted ? '' : 'none';
+  document.getElementById(`${prefix}-ex-rpe-field`).style.display = isWeighted ? '' : 'none';
+}
+
 function openEditExercise(planId, name, ex) {
   document.getElementById('edit-ex-plan').value = planId;
   document.getElementById('edit-ex-orig-name').value = name;
@@ -1004,6 +1014,7 @@ function openEditExercise(planId, name, ex) {
   document.getElementById('edit-ex-rest').value = ex.rest || '';
   document.getElementById('edit-ex-rpe').value = ex.rpe || '';
   document.getElementById('edit-ex-notes').value = ex.notes || '';
+  setExType('edit', ex.timed ? 'tempo' : 'weighted');
   const overlay = document.getElementById('edit-ex-overlay');
   const modal = document.getElementById('edit-ex-modal');
   overlay.style.display = 'block';
@@ -1023,12 +1034,13 @@ async function saveEditExercise() {
   const origName = document.getElementById('edit-ex-orig-name').value;
   const newName  = document.getElementById('edit-ex-name').value.trim();
   const sets     = document.getElementById('edit-ex-sets').value;
-  const reps     = document.getElementById('edit-ex-reps').value.trim();
+  const timed    = document.getElementById('edit-ex-type-tempo').style.background === 'rgb(0, 255, 136)';
+  const reps     = timed ? '' : document.getElementById('edit-ex-reps').value.trim();
   const tempo    = document.getElementById('edit-ex-tempo').value.trim();
   const rest     = document.getElementById('edit-ex-rest').value;
-  const rpe      = document.getElementById('edit-ex-rpe').value.trim();
+  const rpe      = timed ? '' : document.getElementById('edit-ex-rpe').value.trim();
   const notes    = document.getElementById('edit-ex-notes').value.trim();
-  await api.patch(`/api/programs/${planId}/exercises/${encodeURIComponent(origName)}`, { newName, sets, reps, tempo, rest, rpe, notes });
+  await api.patch(`/api/programs/${planId}/exercises/${encodeURIComponent(origName)}`, { newName, sets, reps, tempo, rest, rpe, notes, timed });
   closeEditExercise();
   toast('Exercise updated');
   window._liftsPrograms = await api.get('/api/programs');
@@ -1044,6 +1056,7 @@ function openAddExercise(planId) {
   document.getElementById('add-ex-rest').value = '60';
   document.getElementById('add-ex-rpe').value = '';
   document.getElementById('add-ex-notes').value = '';
+  setExType('add', 'weighted');
   const overlay = document.getElementById('add-ex-overlay');
   const modal = document.getElementById('add-ex-modal');
   overlay.style.display = 'block';
@@ -1063,12 +1076,13 @@ async function saveAddExercise() {
   const name   = document.getElementById('add-ex-name').value.trim();
   if (!name) { toast('Enter an exercise name', 'error'); return; }
   const sets  = document.getElementById('add-ex-sets').value;
-  const reps  = document.getElementById('add-ex-reps').value.trim();
+  const timed = document.getElementById('add-ex-type-tempo').style.background === 'rgb(0, 255, 136)';
+  const reps  = timed ? '' : document.getElementById('add-ex-reps').value.trim();
   const tempo = document.getElementById('add-ex-tempo').value.trim();
   const rest  = document.getElementById('add-ex-rest').value;
-  const rpe   = document.getElementById('add-ex-rpe').value.trim();
+  const rpe   = timed ? '' : document.getElementById('add-ex-rpe').value.trim();
   const notes = document.getElementById('add-ex-notes').value.trim();
-  await api.post(`/api/programs/${planId}/exercises`, { name, sets, reps, tempo, rest, rpe, notes });
+  await api.post(`/api/programs/${planId}/exercises`, { name, sets, reps, tempo, rest, rpe, notes, timed });
   closeAddExercise();
   toast('Exercise added');
   window._liftsPrograms = await api.get('/api/programs');

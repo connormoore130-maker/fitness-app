@@ -145,13 +145,17 @@
     </div>
     <input type="hidden" id="edit-ex-plan" /><input type="hidden" id="edit-ex-orig-name" />
     <div class="edit-field"><label class="edit-label">Exercise Name</label><input id="edit-ex-name" type="text" class="edit-input" placeholder="e.g. Bench Press" /></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button id="edit-ex-type-weighted" onclick="setExType('edit','weighted')" class="btn" style="flex:1;padding:10px;font-size:13px;font-weight:700;background:#00ff88;color:#06120c;border-radius:10px">Weighted</button>
+      <button id="edit-ex-type-tempo" onclick="setExType('edit','tempo')" class="btn" style="flex:1;padding:10px;font-size:13px;font-weight:700;background:#1e1e22;color:#6c6c72;border-radius:10px">Tempo / Timed</button>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="edit-field"><label class="edit-label">Sets</label><input id="edit-ex-sets" type="number" class="edit-input" min="1" /></div>
-      <div class="edit-field"><label class="edit-label">Reps</label><input id="edit-ex-reps" type="text" class="edit-input" placeholder="e.g. 8-12" /></div>
+      <div class="edit-field" id="edit-ex-reps-field"><label class="edit-label">Reps</label><input id="edit-ex-reps" type="text" class="edit-input" placeholder="e.g. 8-12" /></div>
       <div class="edit-field"><label class="edit-label">Tempo</label><input id="edit-ex-tempo" type="text" class="edit-input" placeholder="e.g. 3010" /></div>
       <div class="edit-field"><label class="edit-label">Rest (secs)</label><input id="edit-ex-rest" type="number" class="edit-input" placeholder="60" /></div>
     </div>
-    <div class="edit-field"><label class="edit-label">RPE</label><input id="edit-ex-rpe" type="text" class="edit-input" placeholder="e.g. 8→8.5" /></div>
+    <div class="edit-field" id="edit-ex-rpe-field"><label class="edit-label">RPE</label><input id="edit-ex-rpe" type="text" class="edit-input" placeholder="e.g. 8→8.5" /></div>
     <div class="edit-field"><label class="edit-label">Notes</label><textarea id="edit-ex-notes" class="edit-input" rows="2" placeholder="Optional notes"></textarea></div>
     <button onclick="saveEditExercise()" class="btn" style="width:100%;margin-top:8px;background:var(--mint);color:#06120c;font-weight:700;font-size:15px;padding:14px">Save Changes</button>
   </div>
@@ -165,13 +169,17 @@
     </div>
     <input type="hidden" id="add-ex-plan" />
     <div class="edit-field"><label class="edit-label">Exercise Name</label><input id="add-ex-name" type="text" class="edit-input" placeholder="e.g. Incline DB Press" /></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button id="add-ex-type-weighted" onclick="setExType('add','weighted')" class="btn" style="flex:1;padding:10px;font-size:13px;font-weight:700;background:#00ff88;color:#06120c;border-radius:10px">Weighted</button>
+      <button id="add-ex-type-tempo" onclick="setExType('add','tempo')" class="btn" style="flex:1;padding:10px;font-size:13px;font-weight:700;background:#1e1e22;color:#6c6c72;border-radius:10px">Tempo / Timed</button>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="edit-field"><label class="edit-label">Sets</label><input id="add-ex-sets" type="number" class="edit-input" value="3" min="1" /></div>
-      <div class="edit-field"><label class="edit-label">Reps</label><input id="add-ex-reps" type="text" class="edit-input" placeholder="e.g. 8-12" /></div>
+      <div class="edit-field" id="add-ex-reps-field"><label class="edit-label">Reps</label><input id="add-ex-reps" type="text" class="edit-input" placeholder="e.g. 8-12" /></div>
       <div class="edit-field"><label class="edit-label">Tempo</label><input id="add-ex-tempo" type="text" class="edit-input" placeholder="e.g. 3010" /></div>
       <div class="edit-field"><label class="edit-label">Rest (secs)</label><input id="add-ex-rest" type="number" class="edit-input" value="60" /></div>
     </div>
-    <div class="edit-field"><label class="edit-label">RPE</label><input id="add-ex-rpe" type="text" class="edit-input" placeholder="e.g. 8→8.5" /></div>
+    <div class="edit-field" id="add-ex-rpe-field"><label class="edit-label">RPE</label><input id="add-ex-rpe" type="text" class="edit-input" placeholder="e.g. 8→8.5" /></div>
     <div class="edit-field"><label class="edit-label">Notes</label><textarea id="add-ex-notes" class="edit-input" rows="2" placeholder="Optional notes"></textarea></div>
     <button onclick="saveAddExercise()" class="btn" style="width:100%;margin-top:8px;background:var(--mint);color:#06120c;font-weight:700;font-size:15px;padding:14px">Add Exercise</button>
   </div>
