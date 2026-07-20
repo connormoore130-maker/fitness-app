@@ -417,42 +417,56 @@ let _autoOpenPicker = false;
 let _streakCache = null;
 let _streakDisplayWk = null;
 
-function pixelRunnerSVG(pct, animating) {
-  // Two-frame pixel art runner: alternates at ~8fps for authentic sprite feel
-  // pct = 0-100, position along track
-  // Frame A: right leg forward / left arm forward
-  // Frame B: left leg forward / right arm forward
-  const frameA = `
-    <rect x="8" y="0" width="6" height="6" rx="1" fill="#00ff88"/>
-    <rect x="9" y="7" width="4" height="6" fill="#e2e2e8"/>
-    <rect x="2" y="9" width="7" height="2" fill="#e2e2e8"/>
-    <rect x="2" y="11" width="2" height="3" fill="#e2e2e8"/>
-    <rect x="13" y="7" width="5" height="2" fill="#e2e2e8"/>
-    <rect x="10" y="13" width="3" height="7" fill="#e2e2e8"/>
-    <rect x="12" y="19" width="5" height="2" fill="#9a9aa0"/>
-    <rect x="7" y="13" width="3" height="5" fill="#e2e2e8"/>
-    <rect x="3" y="17" width="5" height="2" fill="#9a9aa0"/>`;
-  const frameB = `
-    <rect x="8" y="0" width="6" height="6" rx="1" fill="#00ff88"/>
-    <rect x="9" y="7" width="4" height="6" fill="#e2e2e8"/>
-    <rect x="13" y="9" width="7" height="2" fill="#e2e2e8"/>
-    <rect x="18" y="11" width="2" height="3" fill="#e2e2e8"/>
-    <rect x="4" y="7" width="5" height="2" fill="#e2e2e8"/>
-    <rect x="7" y="13" width="3" height="7" fill="#e2e2e8"/>
-    <rect x="4" y="19" width="5" height="2" fill="#9a9aa0"/>
-    <rect x="10" y="13" width="3" height="5" fill="#e2e2e8"/>
-    <rect x="12" y="17" width="5" height="2" fill="#9a9aa0"/>`;
+function pixelRunnerSVG(pct) {
   return `<div id="pixel-runner" style="
     position:absolute;
     left:${pct}%;
-    bottom:18px;
+    bottom:20px;
     transform:translateX(-50%);
-    transition:left 0.7s cubic-bezier(0.23,1,0.32,1);
+    transition:left 0.8s cubic-bezier(0.23,1,0.32,1);
     z-index:10;
     pointer-events:none">
-    <svg width="22" height="24" viewBox="0 0 22 24">
-      <g style="animation:runner-frame-a 0.22s steps(1) infinite">${frameA}</g>
-      <g style="animation:runner-frame-b 0.22s steps(1) infinite">${frameB}</g>
+    <svg width="28" height="34" viewBox="0 0 28 34" overflow="visible">
+      <defs>
+        <style>
+          #rn-al{transform-box:fill-box;transform-origin:50% 0%;animation:rn-al .32s ease-in-out infinite alternate}
+          #rn-ar{transform-box:fill-box;transform-origin:50% 0%;animation:rn-ar .32s ease-in-out infinite alternate}
+          #rn-ll{transform-box:fill-box;transform-origin:50% 0%;animation:rn-ll .32s ease-in-out infinite alternate}
+          #rn-lr{transform-box:fill-box;transform-origin:50% 0%;animation:rn-lr .32s ease-in-out infinite alternate}
+          #rn-torso{animation:rn-bob .32s ease-in-out infinite alternate}
+          @keyframes rn-al{from{transform:rotate(-35deg)}to{transform:rotate(32deg)}}
+          @keyframes rn-ar{from{transform:rotate(35deg)}to{transform:rotate(-32deg)}}
+          @keyframes rn-ll{from{transform:rotate(-44deg)}to{transform:rotate(40deg)}}
+          @keyframes rn-lr{from{transform:rotate(44deg)}to{transform:rotate(-40deg)}}
+          @keyframes rn-bob{from{transform:translateY(0)}to{transform:translateY(-2px)}}
+        </style>
+      </defs>
+      <!-- Head (mint) -->
+      <rect x="10" y="0" width="8" height="8" rx="1.5" fill="#00ff88"/>
+      <!-- Torso group (bobs up/down) -->
+      <g id="rn-torso">
+        <rect x="11" y="9" width="6" height="9" rx="1" fill="#dcdce0"/>
+        <!-- Left arm – pivot at shoulder (top-center of group) -->
+        <g id="rn-al">
+          <rect x="4"  y="10" width="8"  height="3" rx="1" fill="#dcdce0"/>
+          <rect x="2"  y="12" width="4"  height="6" rx="1" fill="#dcdce0"/>
+        </g>
+        <!-- Right arm – opposite phase -->
+        <g id="rn-ar">
+          <rect x="16" y="10" width="8"  height="3" rx="1" fill="#dcdce0"/>
+          <rect x="22" y="12" width="4"  height="6" rx="1" fill="#dcdce0"/>
+        </g>
+        <!-- Left leg – pivot at hip (top-center of group) -->
+        <g id="rn-ll">
+          <rect x="11" y="18" width="5" height="9" rx="1" fill="#dcdce0"/>
+          <rect x="5"  y="24" width="8" height="3" rx="1" fill="#8a8a95"/>
+        </g>
+        <!-- Right leg – opposite phase -->
+        <g id="rn-lr">
+          <rect x="12" y="18" width="5" height="8" rx="1" fill="#dcdce0"/>
+          <rect x="15" y="23" width="8" height="3" rx="1" fill="#8a8a95"/>
+        </g>
+      </g>
     </svg>
   </div>`;
 }
@@ -510,8 +524,6 @@ function _renderStreakWeek(el, curWk) {
 
   el.innerHTML = `
     <style>
-      @keyframes runner-frame-a { 0%,49%{opacity:1} 50%,100%{opacity:0} }
-      @keyframes runner-frame-b { 0%,49%{opacity:0} 50%,100%{opacity:1} }
       @keyframes node-pop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
       .node-done { animation: node-pop 0.3s ease-out; }
     </style>
