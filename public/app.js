@@ -415,143 +415,300 @@ const ACTIVITY_ICONS = { weights:'🏋️', running:'👟', boxing:'🥊', cycli
 let _activeMonth = null;
 let _autoOpenPicker = false;
 let _streakCache = null;
+let _streakDisplayWk = null;
 
-async function renderStreak(skipFetch) {
+function pixelRunnerSVG() {
+  return `<svg width="20" height="28" viewBox="0 0 20 28" style="animation:runner-bounce 0.38s ease-in-out infinite alternate;display:block">
+    <rect x="7" y="0" width="6" height="6" rx="1" fill="#00ff88"/>
+    <rect x="8" y="7" width="4" height="6" fill="#e0e0e6"/>
+    <rect x="3" y="8" width="5" height="2" fill="#e0e0e6"/>
+    <rect x="12" y="10" width="5" height="2" fill="#e0e0e6"/>
+    <rect x="7" y="13" width="2" height="6" fill="#e0e0e6"/>
+    <rect x="4" y="17" width="4" height="2" fill="#9a9aa0"/>
+    <rect x="9" y="13" width="2" height="5" fill="#e0e0e6"/>
+    <rect x="11" y="16" width="4" height="2" fill="#9a9aa0"/>
+  </svg>`;
+}
+
+async function renderStreak() {
   const el = document.getElementById('view-streak');
   if (!el) return;
-  if (!skipFetch) {
-    el.innerHTML = '<p style="padding:20px;color:var(--text-2)">Loading…</p>';
-    _streakCache = await api.get('/api/streak-calendar');
-  }
-  const { days, streak } = _streakCache;
-  const today = new Date().toLocaleDateString('en-CA');
-  if (!_activeMonth) _activeMonth = today.slice(0, 7);
+  el.innerHTML = '<p style="padding:20px;color:var(--text-2)">Loading…</p>';
 
-  const typeMap = {};
-  days.forEach(d => { if (d.type) typeMap[d.date] = d.type; });
+  const [comp, actData] = await Promise.all([
+    api.get('/api/marathon-completions'),
+    api.get('/api/marathon-actuals'),
+  ]);
+  _marathonCompletions = comp;
+  _marathonActuals = actData.actuals || {};
+  _marathonEdits = actData.edits || {};
 
-  // Week summary (Mon–Sun of current week)
-  const thisWeek = days.filter(d => d.date <= today).slice(0, 7);
-  const weekDone = thisWeek.filter(d => d.done).length;
-  const typeCounts = {};
-  thisWeek.forEach(d => { if (d.type) typeCounts[d.type] = (typeCounts[d.type]||0)+1; });
-  const weekSummary = Object.entries(typeCounts).map(([t,n])=>`${ACTIVITY_ICONS[t]}×${n}`).join('  ');
+  const curWk = currentMarathonWeek();
+  if (!_streakDisplayWk) _streakDisplayWk = curWk;
+  _renderStreakWeek(el, curWk);
+}
 
-  // Available months from history (most recent first)
-  const monthSet = new Set(days.map(d => d.date.slice(0,7)));
-  monthSet.add(today.slice(0,7));
-  const months = [...monthSet].sort().reverse();
+function _renderStreakWeek(el, curWk) {
+  const wk = _streakDisplayWk;
+  const w = MARATHON_PLAN.find(w => w.wk === wk);
+  if (!w) return;
 
-  // Build monthly calendar grid
-  const [yr, mo] = _activeMonth.split('-').map(Number);
-  const firstOfMonth = new Date(yr, mo - 1, 1);
-  const daysInMonth = new Date(yr, mo, 0).getDate();
-  const startPad = (firstOfMonth.getDay() + 6) % 7; // Mon=0
-  const cells = [];
-  for (let i = 0; i < startPad; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    const ds = `${_activeMonth}-${String(d).padStart(2,'0')}`;
-    cells.push({ date: ds, type: typeMap[ds]||null, done: !!typeMap[ds] });
-  }
-  while (cells.length % 7 !== 0) cells.push(null);
-  const calRows = [];
-  for (let i = 0; i < cells.length; i += 7) calRows.push(cells.slice(i, i+7));
+  const days = MARATHON_DAYS.map(d => {
+    const key = `${wk}-${d}`;
+    const desc = _marathonEdits[key] || w[d] || '';
+    const rt = marathonRunType(desc);
+    const done = !!_marathonCompletions[key];
+    const actual = _marathonActuals[key];
+    return { day: d, key, desc, rt, done, actual, isRest: rt.type === 'rest' };
+  });
 
-  const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const runDays = days.filter(d => !d.isRest);
+  const doneDays = days.filter(d => d.done && !d.isRest);
+  const totalRun = runDays.length;
+  const totalDone = doneDays.length;
+  const pct = totalRun ? Math.round(totalDone / totalRun * 100) : 0;
+
+  // Runner position: index of last completed non-rest day (or -1 if none)
+  let runnerPos = -1;
+  days.forEach((d, i) => { if (d.done && !d.isRest) runnerPos = i; });
+  // If none done, runner waits at first run day
+  if (runnerPos === -1) runnerPos = days.findIndex(d => !d.isRest);
+
+  const weekComplete = totalRun > 0 && totalDone === totalRun;
+  const isCurrentWk = wk === curWk;
+  const weekDate = new Date(w.weekOf + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+
+  // Track: 7 nodes + finish flag
+  const nodePositions = days.map((_, i) => `${(i / 6) * 100}%`);
 
   el.innerHTML = `
-    <div class="page-header"><h1>Streak</h1></div>
-    <div style="height:1px;background:#ffffff14;margin:0 0 28px"></div>
+    <style>
+      @keyframes runner-bounce { from { transform:translateY(0) } to { transform:translateY(-4px) } }
+      @keyframes node-pop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
+      .node-done { animation: node-pop 0.3s ease-out; }
+    </style>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px">
-      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:18px;padding:28px;text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:52px;font-weight:700;color:#00ff88;line-height:1">${streak}</div>
-        <div style="font-size:13.5px;color:#85858c;margin-top:12px">day streak</div>
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h1 style="margin:0">Weekly Run</h1>
+      ${isCurrentWk ? `<span style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#00ff88;background:#00ff8814;padding:4px 10px;border-radius:999px">THIS WEEK</span>` : ''}
+    </div>
+    <div style="height:1px;background:#ffffff14;margin:0 0 24px"></div>
+
+    <!-- Week nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <button onclick="changeStreakWeek(-1)" style="width:36px;height:36px;border-radius:10px;background:#141417;border:1px solid #ffffff14;color:#dcdce0;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center" ${wk<=1?'disabled style="opacity:.3;cursor:default"':''}>‹</button>
+      <div style="text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:18px;font-weight:700;color:#f4f4f5">Week ${wk} <span style="color:#6c6c72;font-size:14px">/ 41</span></div>
+        <div style="font-size:12px;color:#6c6c72;margin-top:2px">${weekDate} · ${w.phase}${w.cutback?' · CUTBACK':''}</div>
       </div>
-      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:18px;padding:28px;text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:52px;font-weight:700;color:#f4f4f5;line-height:1">${weekDone}</div>
-        <div style="font-size:13.5px;color:#85858c;margin-top:12px">this week</div>
+      <button onclick="changeStreakWeek(1)" style="width:36px;height:36px;border-radius:10px;background:#141417;border:1px solid #ffffff14;color:#dcdce0;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center" ${wk>=41?'disabled style="opacity:.3;cursor:default"':''}>›</button>
+    </div>
+
+    <!-- Progress stats -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:24px">
+      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:14px;padding:14px;text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:${totalDone>0?'#00ff88':'#f4f4f5'}">${totalDone}</div>
+        <div style="font-size:11px;color:#6c6c72;margin-top:4px">of ${totalRun} done</div>
+      </div>
+      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:14px;padding:14px;text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#f4f4f5">${w.km}</div>
+        <div style="font-size:11px;color:#6c6c72;margin-top:4px">km planned</div>
+      </div>
+      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:14px;padding:14px;text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#f4f4f5">${pct}%</div>
+        <div style="font-size:11px;color:#6c6c72;margin-top:4px">complete</div>
       </div>
     </div>
 
-    ${weekSummary ? `<div style="background:#141417;border:1px solid #ffffff0d;border-radius:12px;padding:12px 18px;margin-bottom:24px;font-size:16px;letter-spacing:.04em">${weekSummary}</div>` : ''}
+    <!-- Pixel runner track -->
+    <div style="background:#141417;border:1px solid #ffffff0d;border-radius:18px;padding:20px 16px 16px;margin-bottom:20px;position:relative">
+      ${weekComplete ? `<div style="text-align:center;margin-bottom:12px;font-size:13px;font-weight:700;color:#00ff88">🏆 Week complete!</div>` : ''}
 
-    <!-- Month tabs -->
-    <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;margin-bottom:26px;-webkit-overflow-scrolling:touch;scrollbar-width:none" id="month-tabs">
-      ${months.map(m => {
-        const [y2,m2] = m.split('-').map(Number);
-        const label = new Date(y2, m2-1, 1).toLocaleDateString('en-GB', { month:'short', year:'numeric' });
-        const active = m === _activeMonth;
-        return `<button onclick="setStreakMonth('${m}')" style="flex-shrink:0;padding:9px 18px;border-radius:999px;font-size:13.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.18s cubic-bezier(0.23,1,0.32,1);border:1px solid ${active?'transparent':'#ffffff14'};background:${active?'#00ff88':'#141417'};color:${active?'#06120c':'#9a9aa0'}">
-          ${label}
-        </button>`;
-      }).join('')}
-    </div>
+      <!-- Runner + track container -->
+      <div style="position:relative;height:72px;margin:0 8px">
+        <!-- Track line -->
+        <div style="position:absolute;top:52px;left:14px;right:14px;height:3px;background:#1e1e24;border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${weekComplete?100:runnerPos<0?0:Math.round((runnerPos/6)*100)}%;background:linear-gradient(90deg,#00ff88,#00cc6a);border-radius:2px;transition:width 0.6s cubic-bezier(0.23,1,0.32,1)"></div>
+        </div>
 
-    <!-- Day labels -->
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;text-align:center;margin-bottom:10px">
-      ${dayLabels.map(d=>`<div style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#6c6c72;text-transform:uppercase">${d}</div>`).join('')}
-    </div>
+        <!-- Day nodes -->
+        ${days.map((d, i) => {
+          const x = `calc(${(i/6)*100}% - 12px)`;
+          const isRunner = !weekComplete && i === runnerPos;
+          return `<div style="position:absolute;left:${x};display:flex;flex-direction:column;align-items:center;gap:0">
+            ${isRunner ? `<div style="margin-bottom:2px">${pixelRunnerSVG()}</div>` : `<div style="height:22px"></div>`}
+            <div id="track-node-${d.key}" onclick="openDayLog('${d.day}',${wk})" style="width:24px;height:24px;border-radius:50%;background:${d.done&&!d.isRest?'#00ff88':d.isRest?'#1a1a20':'#1e1e24'};border:2px solid ${d.done&&!d.isRest?'#00ff88':d.isRest?'#2a2a30':'#3a3a40'};cursor:${d.isRest?'default':'pointer'};display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:${d.done&&!d.isRest?'0 0 10px #00ff8840':'none'}">
+              ${d.isRest?'<svg width="8" height="8" viewBox="0 0 8 8"><rect x="1" y="1" width="2" height="5" fill="#3a3a40" rx="1"/><rect x="5" y="1" width="2" height="5" fill="#3a3a40" rx="1"/></svg>':d.done?'<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="#06120c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+            </div>
+          </div>`;
+        }).join('')}
 
-    <!-- Calendar grid -->
-    <div style="display:flex;flex-direction:column;gap:10px" id="streak-grid">
-      ${calRows.map(row => `
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px">
-          ${row.map(day => {
-            if (!day) return `<div style="aspect-ratio:1"></div>`;
-            const isToday = day.date === today;
-            const isFuture = day.date > today;
-            const isRest = day.type === 'rest';
-            const cls = ['streak-cell',
-              day.done && !isRest ? 'done' : '',
-              day.done &&  isRest ? 'rest-day' : '',
-              isToday ? 'today' : '',
-              isFuture ? 'future' : '',
-            ].filter(Boolean).join(' ');
-            const dayNum = parseInt(day.date.slice(-2));
-            const icon = day.type ? ACTIVITY_ICONS[day.type] : '';
-            return `<div class="${cls}" onclick="openActivityPicker('${day.date}')" data-date="${day.date}">
-              <span class="streak-day-num">${dayNum}</span>
-              ${icon ? `<div class="streak-cell-icon">${icon}</div>` : `<span class="streak-dot"></span>`}
-            </div>`;
-          }).join('')}
-        </div>`).join('')}
-    </div>
-
-    <div style="margin-top:24px;font-size:13.5px;color:#6c6c72;text-align:center">Tap any day to log your activity</div>
-
-    <!-- Activity picker overlay -->
-    <div id="activity-picker-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6)" onclick="closeActivityPicker()"></div>
-    <div id="activity-picker" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:201;background:#141417;border-radius:20px 20px 0 0;padding:20px 20px 44px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.32,0.72,0,1)">
-      <div style="width:36px;height:4px;background:#ffffff20;border-radius:2px;margin:0 auto 20px"></div>
-      <div id="activity-picker-date" style="font-family:'Space Grotesk';font-size:13px;font-weight:600;letter-spacing:.08em;text-align:center;margin-bottom:20px;text-transform:uppercase;color:#6c6c72"></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-        ${[['weights','🏋️','Weights'],['running','👟','Running'],['boxing','🥊','Boxing'],['cycling','🚴','Cycling'],['yoga','🧘','Yoga'],['other','✓','Other']].map(([t,icon,label])=>`
-          <button class="activity-btn" onclick="setActivity('${t}',event)" style="position:relative;overflow:hidden">
-            <span style="font-size:28px">${icon}</span>
-            <span style="font-size:12px;font-weight:600;color:#9a9aa0">${label}</span>
-          </button>
-        `).join('')}
+        <!-- Finish flag -->
+        ${weekComplete ? `<div style="position:absolute;right:-8px;top:36px;font-size:20px">🏆</div>` : `<div style="position:absolute;right:-8px;top:38px;font-size:18px">🏁</div>`}
       </div>
-      <button class="activity-btn" onclick="setActivity('rest',event)" style="width:100%;flex-direction:row;justify-content:center;gap:12px;margin-bottom:12px;border-radius:12px;padding:14px 16px;position:relative;overflow:hidden">
-        <span style="font-size:24px">💤</span>
-        <span style="font-size:13px;font-weight:600;color:#9a9aa0">Rest Day</span>
-      </button>
-      <button onclick="setActivity(null)" style="width:100%;padding:14px;background:transparent;border:1px solid #ffffff1f;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;color:#6c6c72;transition:border-color .15s,color .15s">Clear day</button>
+
+      <!-- Day labels -->
+      <div style="display:flex;justify-content:space-between;margin:8px 8px 0;padding:0 2px">
+        ${MARATHON_DAY_LABELS.map((label, i) => {
+          const d = days[i];
+          return `<div style="text-align:center;width:28px">
+            <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:${d.done&&!d.isRest?'#00ff88':d.isRest?'#3a3a40':'#6c6c72'};text-transform:uppercase">${label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Day cards -->
+    <div style="display:flex;flex-direction:column;gap:8px" id="streak-day-cards">
+      ${days.map(d => _streakDayCard(d, wk)).join('')}
     </div>
   `;
+}
 
-  // Scroll active month tab into view
-  requestAnimationFrame(() => {
-    const active = document.querySelector('#month-tabs button[style*="background:#00ff88"]');
-    if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
-    if (_autoOpenPicker) { _autoOpenPicker = false; openActivityPicker(today); }
-  });
+function _streakDayCard(d, wk) {
+  const actual = d.actual;
+  const hasActual = actual && (actual.km || actual.pace || actual.hrs !== undefined);
+  return `<div style="background:#141417;border:1px solid ${d.done&&!d.isRest?'#00ff8820':'#ffffff0d'};border-radius:14px;overflow:hidden;transition:border-color .2s">
+    <div onclick="${d.isRest?'':(`openDayLog('${d.day}',${wk})`)}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:${d.isRest?'default':'pointer'}">
+      <!-- Checkbox -->
+      <div style="flex-shrink:0">
+        ${d.isRest
+          ? `<div style="width:26px;height:26px;border-radius:8px;background:#0b0b0d;border:1px solid #ffffff0d;display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 8 8"><rect x="1" y="1" width="2" height="5" fill="#3a3a40" rx="1"/><rect x="5" y="1" width="2" height="5" fill="#3a3a40" rx="1"/></svg></div>`
+          : `<button onclick="event.stopPropagation();toggleStreakDay('${d.day}',${wk})" id="sdcheck-${d.key}" style="width:26px;height:26px;border-radius:8px;border:1.5px solid ${d.done?'#00ff88':'#ffffff1f'};background:${d.done?'#00ff88':'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0">
+              ${d.done?`<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4.5 8.5L9.5 2.5" stroke="#06120c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
+             </button>`}
+      </div>
+      <!-- Info -->
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.06em;color:${d.rt.color};background:${d.rt.color}18;padding:2px 6px;border-radius:999px">${d.rt.label}</span>
+          <span style="font-size:11px;color:#5a5a61">${MARATHON_DAY_LABELS[MARATHON_DAYS.indexOf(d.day)]}</span>
+          ${hasActual ? `<span style="font-size:10px;color:#00ff88;background:#00ff8814;padding:2px 6px;border-radius:999px">logged</span>` : ''}
+        </div>
+        <div style="font-size:13px;color:${d.isRest?'#4a4a52':d.done?'#6c6c72':'#c0c0c8'};line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.desc)}</div>
+        ${hasActual ? `<div style="display:flex;gap:10px;margin-top:4px">${actual.km?`<span style="font-size:11px;color:#9a9aa0">📍 ${actual.km} km</span>`:''}${actual.pace?`<span style="font-size:11px;color:#9a9aa0">⚡ ${actual.pace}/km</span>`:''}${(actual.hrs||actual.mins)?`<span style="font-size:11px;color:#9a9aa0">⏱ ${actual.hrs||0}h ${actual.mins||0}m</span>`:''}</div>` : ''}
+      </div>
+      ${!d.isRest ? `<button onclick="event.stopPropagation();editStreakDay('${d.day}',${wk})" style="flex-shrink:0;padding:5px 10px;background:transparent;border:1px solid #ffffff14;border-radius:8px;font-size:11px;font-weight:600;color:#6c6c72;cursor:pointer">Edit</button>` : ''}
+    </div>
+    <!-- Inline log panel -->
+    <div id="slog-${d.key}" style="display:none;padding:0 16px 16px">
+      <div style="height:1px;background:#ffffff08;margin-bottom:14px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Distance (km)</label>
+          <input id="slog-km-${d.key}" value="${actual?.km||''}" placeholder="e.g. 8.5" type="number" step="0.1" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Pace (/km)</label>
+          <input id="slog-pace-${d.key}" value="${actual?.pace||''}" placeholder="5:45" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Hours</label>
+          <input id="slog-hrs-${d.key}" value="${actual?.hrs??''}" placeholder="0" type="number" min="0" max="9" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Minutes</label>
+          <input id="slog-mins-${d.key}" value="${actual?.mins??''}" placeholder="45" type="number" min="0" max="59" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="saveStreakLog('${d.day}',${wk})" style="flex:1;padding:10px;background:#00ff88;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
+        ${hasActual?`<button onclick="clearStreakLog('${d.day}',${wk})" style="padding:10px 14px;background:transparent;border:1px solid #ffffff1f;border-radius:10px;font-size:12px;color:#6c6c72;cursor:pointer">Clear</button>`:''}
+      </div>
+    </div>
+    <!-- Inline edit panel -->
+    <div id="sedit-${d.key}" style="display:none;padding:0 16px 16px">
+      <div style="height:1px;background:#ffffff08;margin-bottom:14px"></div>
+      <label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px">Edit session</label>
+      <textarea id="sedit-txt-${d.key}" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:10px 12px;font-size:13px;color:#dcdce0;resize:vertical;min-height:56px;box-sizing:border-box;font-family:Manrope,sans-serif">${escHtml(d.desc)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button onclick="saveStreakEdit('${d.day}',${wk})" style="padding:8px 16px;background:#00ff88;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
+        <button onclick="closeStreakEdit('${d.day}',${wk})" style="padding:8px 12px;background:transparent;border:1px solid #ffffff1f;border-radius:8px;font-size:12px;color:#6c6c72;cursor:pointer">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openDayLog(day, wk) {
+  const key = `${wk}-${day}`;
+  const panel = document.getElementById(`slog-${key}`);
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  // Close all other panels first
+  document.querySelectorAll('[id^="slog-"],[id^="sedit-"]').forEach(p => { p.style.display = 'none'; });
+  panel.style.display = isOpen ? 'none' : 'block';
+}
+
+function editStreakDay(day, wk) {
+  const key = `${wk}-${day}`;
+  document.querySelectorAll('[id^="slog-"],[id^="sedit-"]').forEach(p => { p.style.display = 'none'; });
+  const panel = document.getElementById(`sedit-${key}`);
+  if (panel) panel.style.display = 'block';
+}
+
+function closeStreakEdit(day, wk) {
+  document.getElementById(`sedit-${wk}-${day}`)?.style && (document.getElementById(`sedit-${wk}-${day}`).style.display = 'none');
+  const panel = document.getElementById(`sedit-${wk}-${day}`);
+  if (panel) panel.style.display = 'none';
+}
+
+async function saveStreakEdit(day, wk) {
+  const key = `${wk}-${day}`;
+  const desc = document.getElementById(`sedit-txt-${key}`)?.value?.trim();
+  if (!desc) return;
+  _marathonEdits[key] = desc;
+  await api.post('/api/marathon-edits', { key, desc });
+  toast('Session updated');
+  renderStreak();
+}
+
+async function toggleStreakDay(day, wk) {
+  const key = `${wk}-${day}`;
+  const done = !_marathonCompletions[key];
+  _marathonCompletions[key] = done || undefined;
+  if (!done) delete _marathonCompletions[key];
+  const w = MARATHON_PLAN.find(w => w.wk === wk);
+  const desc = _marathonEdits[key] || w?.[day] || '';
+  await Promise.all([
+    api.post('/api/marathon-completions', { key, done }),
+    syncMarathonToStreak(wk, day, done),
+  ]);
+  renderStreak();
+}
+
+async function saveStreakLog(day, wk) {
+  const key = `${wk}-${day}`;
+  const km = document.getElementById(`slog-km-${key}`)?.value?.trim() || '';
+  const pace = document.getElementById(`slog-pace-${key}`)?.value?.trim() || '';
+  const hrs = document.getElementById(`slog-hrs-${key}`)?.value?.trim() || '';
+  const mins = document.getElementById(`slog-mins-${key}`)?.value?.trim() || '';
+  _marathonActuals[key] = { km, pace, hrs, mins, savedAt: new Date().toISOString() };
+  const duration = (hrs||mins) ? `${hrs||0}h ${mins||0}m` : '';
+  await api.post('/api/marathon-actuals', { key, km, pace, duration, hrs, mins, notes: '' });
+  if (!_marathonCompletions[key]) {
+    _marathonCompletions[key] = true;
+    await Promise.all([
+      api.post('/api/marathon-completions', { key, done: true }),
+      syncMarathonToStreak(wk, day, true),
+    ]);
+  }
+  toast('Run logged!');
+  renderStreak();
+}
+
+async function clearStreakLog(day, wk) {
+  const key = `${wk}-${day}`;
+  delete _marathonActuals[key];
+  await api.post('/api/marathon-actuals', { key, km:'', pace:'', duration:'', hrs:'', mins:'', notes:'' });
+  toast('Cleared');
+  renderStreak();
+}
+
+function changeStreakWeek(delta) {
+  const newWk = (_streakDisplayWk || 1) + delta;
+  if (newWk < 1 || newWk > 41) return;
+  _streakDisplayWk = newWk;
+  const el = document.getElementById('view-streak');
+  const curWk = currentMarathonWeek();
+  if (el) _renderStreakWeek(el, curWk);
 }
 
 function setStreakMonth(m) {
   _activeMonth = m;
-  renderStreak(true);
 }
 
 let _pickerDate = null;
@@ -2321,36 +2478,26 @@ function renderMarathonRunRow(wk, day, desc) {
 
     <!-- Expandable detail panel -->
     ${!isRest ? `<div id="mdetail-${key}" style="display:none;margin-top:12px;padding:14px;background:#0b0b0d;border:1px solid #ffffff0d;border-radius:12px">
-      <!-- Coaching tip -->
-      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#6c6c72;text-transform:uppercase;margin-bottom:8px">Coach's Notes</div>
-      <div style="font-size:13.5px;color:#9a9aa0;line-height:1.6;margin-bottom:16px">${escHtml(tip)}</div>
-
-      <!-- Edit plan -->
-      <div style="height:1px;background:#ffffff08;margin-bottom:14px"></div>
-      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#6c6c72;text-transform:uppercase;margin-bottom:8px">Edit Plan</div>
-      <textarea id="medit-${key}" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:10px;padding:10px 12px;font-size:13px;color:#dcdce0;line-height:1.5;resize:vertical;min-height:60px;box-sizing:border-box;font-family:Manrope,sans-serif">${escHtml(desc)}</textarea>
-      <button onclick="saveMarathonEdit('${key}',${wk})" style="margin-top:8px;padding:7px 14px;background:transparent;border:1px solid #ffffff1f;border-radius:8px;font-size:12px;font-weight:600;color:#9a9aa0;cursor:pointer">Save edit</button>
-
-      <!-- Log actual -->
-      <div style="height:1px;background:#ffffff08;margin:14px 0"></div>
-      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;color:#6c6c72;text-transform:uppercase;margin-bottom:8px">What I Actually Did</div>
-      ${actual ? `<div style="background:#00ff8808;border:1px solid #00ff8820;border-radius:10px;padding:12px;margin-bottom:10px">
-        <div style="display:flex;gap:16px;margin-bottom:6px">
-          ${actual.duration ? `<span style="font-size:12px;color:#00ff88">⏱ ${escHtml(actual.duration)}</span>` : ''}
-          ${actual.pace ? `<span style="font-size:12px;color:#9a9aa0">⚡ ${escHtml(actual.pace)}</span>` : ''}
-        </div>
-        ${actual.notes ? `<div style="font-size:13px;color:#dcdce0;line-height:1.5">${escHtml(actual.notes)}</div>` : ''}
+      ${actual ? `<div style="background:#00ff8808;border:1px solid #00ff8820;border-radius:10px;padding:10px 12px;margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap">
+        ${actual.km ? `<span style="font-size:12px;color:#00ff88">📍 ${escHtml(String(actual.km))} km</span>` : ''}
+        ${actual.pace ? `<span style="font-size:12px;color:#9a9aa0">⚡ ${escHtml(actual.pace)}/km</span>` : ''}
+        ${(actual.hrs||actual.mins) ? `<span style="font-size:12px;color:#9a9aa0">⏱ ${actual.hrs||0}h ${actual.mins||0}m</span>` : actual.duration ? `<span style="font-size:12px;color:#9a9aa0">⏱ ${escHtml(actual.duration)}</span>` : ''}
       </div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label style="font-size:11px;color:#6c6c72;display:block;margin-bottom:4px">Duration (e.g. 45:30)</label>
-          <input id="mact-dur-${key}" value="${actual?.duration||''}" placeholder="hh:mm" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:8px;padding:8px 10px;font-size:13px;color:#dcdce0;box-sizing:border-box" /></div>
-        <div><label style="font-size:11px;color:#6c6c72;display:block;margin-bottom:4px">Avg pace (/km)</label>
-          <input id="mact-pace-${key}" value="${actual?.pace||''}" placeholder="5:45" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:8px;padding:8px 10px;font-size:13px;color:#dcdce0;box-sizing:border-box" /></div>
+        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Distance (km)</label>
+          <input id="mact-km-${key}" value="${actual?.km||''}" placeholder="8.5" type="number" step="0.1" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Pace (/km)</label>
+          <input id="mact-pace-${key}" value="${actual?.pace||''}" placeholder="5:45" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
       </div>
-      <textarea id="mact-notes-${key}" placeholder="How did it go? Any issues, how you felt, what you adjusted..." style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:10px;padding:10px 12px;font-size:13px;color:#dcdce0;line-height:1.5;resize:vertical;min-height:70px;box-sizing:border-box;font-family:Manrope,sans-serif">${escHtml(actual?.notes||'')}</textarea>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button onclick="saveMarathonActual('${key}',${wk})" style="padding:8px 16px;background:#00ff88;border:none;border-radius:8px;font-size:13px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
-        ${actual ? `<button onclick="clearMarathonActual('${key}',${wk})" style="padding:8px 12px;background:transparent;border:1px solid #ffffff1f;border-radius:8px;font-size:12px;color:#6c6c72;cursor:pointer">Clear</button>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Hours</label>
+          <input id="mact-hrs-${key}" value="${actual?.hrs??''}" placeholder="0" type="number" min="0" max="9" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Minutes</label>
+          <input id="mact-mins-${key}" value="${actual?.mins??''}" placeholder="45" type="number" min="0" max="59" style="width:100%;background:#141417;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="saveMarathonActual('${key}',${wk})" style="flex:1;padding:10px;background:#00ff88;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
+        ${actual ? `<button onclick="clearMarathonActual('${key}',${wk})" style="padding:10px 14px;background:transparent;border:1px solid #ffffff1f;border-radius:10px;font-size:12px;color:#6c6c72;cursor:pointer">Clear</button>` : ''}
       </div>
     </div>` : ''}
   </div>`;
@@ -2384,11 +2531,14 @@ async function saveMarathonEdit(key, wk) {
 }
 
 async function saveMarathonActual(key, wk) {
-  const duration = document.getElementById(`mact-dur-${key}`)?.value?.trim() || '';
-  const pace = document.getElementById(`mact-pace-${key}`)?.value?.trim() || '';
-  const notes = document.getElementById(`mact-notes-${key}`)?.value?.trim() || '';
-  _marathonActuals[key] = { duration, pace, notes, savedAt: new Date().toISOString() };
-  await api.post('/api/marathon-actuals', { key, duration, pace, notes });
+  const km    = document.getElementById(`mact-km-${key}`)?.value?.trim() || '';
+  const pace  = document.getElementById(`mact-pace-${key}`)?.value?.trim() || '';
+  const hrs   = document.getElementById(`mact-hrs-${key}`)?.value?.trim() || '';
+  const mins  = document.getElementById(`mact-mins-${key}`)?.value?.trim() || '';
+  const duration = (hrs||mins) ? `${hrs||0}h ${mins||0}m` : '';
+  const notes = '';
+  _marathonActuals[key] = { km, pace, hrs, mins, duration, notes, savedAt: new Date().toISOString() };
+  await api.post('/api/marathon-actuals', { key, km, pace, duration, hrs, mins, notes });
   // Mark complete + sync streak
   const dayPart = key.slice(key.indexOf('-') + 1);
   if (!_marathonCompletions[key]) {

@@ -716,9 +716,9 @@ app.get('/api/marathon-actuals', (_req, res) => {
 app.post('/api/marathon-actuals', (req, res) => {
   const db = readDB();
   if (!db.marathonActuals) db.marathonActuals = {};
-  const { key, notes, duration, pace } = req.body;
-  if (notes === null) { delete db.marathonActuals[key]; }
-  else { db.marathonActuals[key] = { notes: notes||'', duration: duration||'', pace: pace||'', savedAt: new Date().toISOString() }; }
+  const { key, notes, duration, pace, km, hrs, mins } = req.body;
+  if (notes === null && !km && !pace && !duration) { delete db.marathonActuals[key]; }
+  else { db.marathonActuals[key] = { km: km||'', pace: pace||'', hrs: hrs||'', mins: mins||'', duration: duration||'', notes: notes||'', savedAt: new Date().toISOString() }; }
   writeDB(db);
   res.json({ ok: true });
 });
