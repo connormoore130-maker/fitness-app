@@ -417,56 +417,26 @@ let _autoOpenPicker = false;
 let _streakCache = null;
 let _streakDisplayWk = null;
 
-function pixelRunnerSVG(pct) {
-  return `<div id="pixel-runner" style="
-    position:absolute;
-    left:${pct}%;
-    bottom:20px;
-    transform:translateX(-50%);
-    transition:left 0.8s cubic-bezier(0.23,1,0.32,1);
-    z-index:10;
-    pointer-events:none">
-    <svg width="28" height="34" viewBox="0 0 28 34" overflow="visible">
-      <defs>
-        <style>
-          #rn-al{transform-box:fill-box;transform-origin:50% 0%;animation:rn-al .32s ease-in-out infinite alternate}
-          #rn-ar{transform-box:fill-box;transform-origin:50% 0%;animation:rn-ar .32s ease-in-out infinite alternate}
-          #rn-ll{transform-box:fill-box;transform-origin:50% 0%;animation:rn-ll .32s ease-in-out infinite alternate}
-          #rn-lr{transform-box:fill-box;transform-origin:50% 0%;animation:rn-lr .32s ease-in-out infinite alternate}
-          #rn-torso{animation:rn-bob .32s ease-in-out infinite alternate}
-          @keyframes rn-al{from{transform:rotate(-35deg)}to{transform:rotate(32deg)}}
-          @keyframes rn-ar{from{transform:rotate(35deg)}to{transform:rotate(-32deg)}}
-          @keyframes rn-ll{from{transform:rotate(-44deg)}to{transform:rotate(40deg)}}
-          @keyframes rn-lr{from{transform:rotate(44deg)}to{transform:rotate(-40deg)}}
-          @keyframes rn-bob{from{transform:translateY(0)}to{transform:translateY(-2px)}}
-        </style>
-      </defs>
-      <!-- Head (mint) -->
-      <rect x="10" y="0" width="8" height="8" rx="1.5" fill="#00ff88"/>
-      <!-- Torso group (bobs up/down) -->
-      <g id="rn-torso">
-        <rect x="11" y="9" width="6" height="9" rx="1" fill="#dcdce0"/>
-        <!-- Left arm – pivot at shoulder (top-center of group) -->
-        <g id="rn-al">
-          <rect x="4"  y="10" width="8"  height="3" rx="1" fill="#dcdce0"/>
-          <rect x="2"  y="12" width="4"  height="6" rx="1" fill="#dcdce0"/>
-        </g>
-        <!-- Right arm – opposite phase -->
-        <g id="rn-ar">
-          <rect x="16" y="10" width="8"  height="3" rx="1" fill="#dcdce0"/>
-          <rect x="22" y="12" width="4"  height="6" rx="1" fill="#dcdce0"/>
-        </g>
-        <!-- Left leg – pivot at hip (top-center of group) -->
-        <g id="rn-ll">
-          <rect x="11" y="18" width="5" height="9" rx="1" fill="#dcdce0"/>
-          <rect x="5"  y="24" width="8" height="3" rx="1" fill="#8a8a95"/>
-        </g>
-        <!-- Right leg – opposite phase -->
-        <g id="rn-lr">
-          <rect x="12" y="18" width="5" height="8" rx="1" fill="#dcdce0"/>
-          <rect x="15" y="23" width="8" height="3" rx="1" fill="#8a8a95"/>
-        </g>
-      </g>
+function habboFigureSVG(leftPct) {
+  return `<div id="habbo-runner" style="position:absolute;left:${leftPct}%;top:10px;transform:translateX(-50%);z-index:5;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,255,136,0.18))">
+    <svg width="34" height="46" viewBox="0 0 34 46" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      <ellipse cx="17" cy="44" rx="11" ry="3" fill="rgba(0,0,0,0.35)"/>
+      <rect x="11" y="0" width="12" height="4" fill="#1a0d07"/>
+      <rect x="11" y="3" width="12" height="12" fill="#f5c070"/>
+      <rect x="13" y="6" width="3" height="3" fill="#2c1405"/>
+      <rect x="20" y="6" width="3" height="3" fill="#2c1405"/>
+      <rect x="14" y="12" width="6" height="2" fill="#c8784a"/>
+      <rect x="14" y="15" width="6" height="3" fill="#f5c070"/>
+      <rect x="9" y="18" width="16" height="11" fill="#00e87a"/>
+      <rect x="14" y="18" width="6" height="3" fill="#00cc6a"/>
+      <rect x="4" y="18" width="5" height="9" fill="#00e87a"/>
+      <rect x="25" y="18" width="5" height="9" fill="#00e87a"/>
+      <rect x="4" y="26" width="5" height="4" fill="#f5c070"/>
+      <rect x="25" y="26" width="5" height="4" fill="#f5c070"/>
+      <rect x="9" y="29" width="7" height="10" fill="#1a2f50"/>
+      <rect x="18" y="29" width="7" height="10" fill="#1a2f50"/>
+      <rect x="8" y="38" width="9" height="5" fill="#18181e"/>
+      <rect x="17" y="38" width="9" height="5" fill="#18181e"/>
     </svg>
   </div>`;
 }
@@ -519,85 +489,103 @@ function _renderStreakWeek(el, curWk) {
   const isCurrentWk = wk === curWk;
   const weekDate = new Date(w.weekOf + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short' });
 
-  // Track: 7 nodes + finish flag
-  const nodePositions = days.map((_, i) => `${(i / 6) * 100}%`);
+  const runnerLeftPct = runnerPos < 0 ? days.findIndex(d=>!d.isRest)/6*100 : (runnerPos/6)*100;
+  const fillPct = weekComplete ? 100 : runnerPos < 0 ? 0 : runnerLeftPct;
 
   el.innerHTML = `
-    <style>
-      @keyframes node-pop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
-      .node-done { animation: node-pop 0.3s ease-out; }
-    </style>
-
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
       <h1 style="margin:0">Weekly Run</h1>
       ${isCurrentWk ? `<span style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#00ff88;background:#00ff8814;padding:4px 10px;border-radius:999px">THIS WEEK</span>` : ''}
     </div>
-    <div style="height:1px;background:#ffffff14;margin:0 0 24px"></div>
+    <div style="height:1px;background:#ffffff14;margin:0 0 20px"></div>
 
     <!-- Week nav -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <button onclick="changeStreakWeek(-1)" style="width:36px;height:36px;border-radius:10px;background:#141417;border:1px solid #ffffff14;color:#dcdce0;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center" ${wk<=1?'disabled style="opacity:.3;cursor:default"':''}>‹</button>
-      <div style="text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:18px;font-weight:700;color:#f4f4f5">Week ${wk} <span style="color:#6c6c72;font-size:14px">/ 41</span></div>
-        <div style="font-size:12px;color:#6c6c72;margin-top:2px">${weekDate} · ${w.phase}${w.cutback?' · CUTBACK':''}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <button onclick="changeStreakWeek(-1)" style="width:40px;height:40px;border-radius:12px;background:var(--surface);border:1px solid var(--border-mid);color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s" ${wk<=1?'disabled style="opacity:.25;cursor:default"':''}>‹</button>
+      <div style="text-align:center;flex:1;padding:0 12px">
+        <div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--text)">Week ${wk} <span style="color:var(--text-3);font-size:13px;font-weight:500">/ 41</span></div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px;letter-spacing:.02em">${weekDate} · ${w.phase}${w.cutback?' · <span style="color:var(--amber)">CUTBACK</span>':''}</div>
       </div>
-      <button onclick="changeStreakWeek(1)" style="width:36px;height:36px;border-radius:10px;background:#141417;border:1px solid #ffffff14;color:#dcdce0;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center" ${wk>=41?'disabled style="opacity:.3;cursor:default"':''}>›</button>
+      <button onclick="changeStreakWeek(1)" style="width:40px;height:40px;border-radius:12px;background:var(--surface);border:1px solid var(--border-mid);color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s" ${wk>=41?'disabled style="opacity:.25;cursor:default"':''}>›</button>
     </div>
 
-    <!-- Progress stats -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:24px">
-      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:14px;padding:14px;text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:${totalDone>0?'#00ff88':'#f4f4f5'}">${totalDone}</div>
-        <div style="font-size:11px;color:#6c6c72;margin-top:4px">of ${totalRun} done</div>
-      </div>
-      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:14px;padding:14px;text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#f4f4f5">${w.km}</div>
-        <div style="font-size:11px;color:#6c6c72;margin-top:4px">km planned</div>
-      </div>
-      <div style="background:#141417;border:1px solid #ffffff0d;border-radius:14px;padding:14px;text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:26px;font-weight:700;color:#f4f4f5">${pct}%</div>
-        <div style="font-size:11px;color:#6c6c72;margin-top:4px">complete</div>
-      </div>
-    </div>
+    <!-- Track card -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:20px 20px 16px;margin-bottom:14px;overflow:visible;position:relative">
+      ${weekComplete ? `
+        <div style="text-align:center;margin-bottom:16px;padding:10px;background:#00ff8810;border:1px solid #00ff8830;border-radius:12px">
+          <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:#00ff88;letter-spacing:.04em">WEEK COMPLETE</div>
+        </div>` : ''}
 
-    <!-- Pixel runner track -->
-    <div style="background:#141417;border:1px solid #ffffff0d;border-radius:18px;padding:20px 16px 16px;margin-bottom:20px;position:relative">
-      ${weekComplete ? `<div style="text-align:center;margin-bottom:12px;font-size:13px;font-weight:700;color:#00ff88">🏆 Week complete!</div>` : ''}
+      <!-- Stage: character + track + nodes all in one coordinate space -->
+      <div style="position:relative;height:108px;overflow:visible;margin:0 16px">
 
-      <!-- Runner + track container -->
-      <div style="position:relative;height:80px;margin:0 10px">
-        <!-- Track line background -->
-        <div style="position:absolute;top:56px;left:0;right:0;height:4px;background:#1e1e24;border-radius:2px"></div>
-        <!-- Track fill (progress) -->
-        <div style="position:absolute;top:56px;left:0;height:4px;width:${weekComplete?100:runnerPos<0?0:Math.round((runnerPos/6)*100)}%;background:linear-gradient(90deg,#00ff88,#00cc6a);border-radius:2px;transition:width 0.7s cubic-bezier(0.23,1,0.32,1)"></div>
+        <!-- Habbo figure (static, transitions via JS) -->
+        ${habboFigureSVG(runnerLeftPct)}
 
-        <!-- Animated pixel runner (single element, moves via left%) -->
-        ${weekComplete
-          ? `<div style="position:absolute;right:-14px;bottom:10px;font-size:22px">🏆</div>`
-          : pixelRunnerSVG(runnerPos < 0 ? 0 : Math.round((runnerPos/6)*100))}
+        <!-- Track surface band -->
+        <div style="position:absolute;left:0;right:0;top:60px;height:28px;background:#0f0f12;border-radius:6px;overflow:hidden">
+          <!-- Lane stripes -->
+          <div style="position:absolute;top:8px;left:0;right:0;height:1px;background:rgba(255,255,255,0.04)"></div>
+          <div style="position:absolute;top:18px;left:0;right:0;height:1px;background:rgba(255,255,255,0.04)"></div>
+          <!-- Progress fill on surface -->
+          <div style="position:absolute;top:0;bottom:0;left:0;width:${fillPct}%;background:linear-gradient(90deg,rgba(0,255,136,0.18),rgba(0,255,136,0.1));transition:width 0.8s var(--ease)"></div>
+        </div>
 
-        <!-- Day nodes -->
+        <!-- Track centre line (overlaid on surface) -->
+        <div style="position:absolute;left:0;right:0;top:73px;height:2px;background:#1e1e28;border-radius:1px"></div>
+        <!-- Centre line fill -->
+        <div style="position:absolute;left:0;top:73px;height:2px;width:${fillPct}%;background:linear-gradient(90deg,#00ff88,#00e07a);border-radius:1px;transition:width 0.8s var(--ease)"></div>
+
+        <!-- Day nodes (sit on the centre line) -->
         ${days.map((d, i) => {
-          const leftPct = (i/6)*100;
-          return `<div style="position:absolute;left:${leftPct}%;transform:translateX(-50%);top:44px">
-            <div id="track-node-${d.key}" onclick="${d.isRest?'':(`openDayLog('${d.day}',${wk})`)}" style="width:26px;height:26px;border-radius:50%;background:${d.done&&!d.isRest?'#00ff88':d.isRest?'#141417':'#1e1e24'};border:2px solid ${d.done&&!d.isRest?'#00ff88':d.isRest?'#2a2a30':'#3a3a40'};cursor:${d.isRest?'default':'pointer'};display:flex;align-items:center;justify-content:center;transition:all 0.2s;box-shadow:${d.done&&!d.isRest?'0 0 12px #00ff8860':'none'}">
-              ${d.isRest?'<svg width="8" height="8" viewBox="0 0 8 8"><rect x="1" y="1" width="2" height="5" fill="#3a3a40" rx="1"/><rect x="5" y="1" width="2" height="5" fill="#3a3a40" rx="1"/></svg>':d.done?'<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="#06120c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
-            </div>
+          const lp = (i/6)*100;
+          const sz = d.isRest ? 16 : 22;
+          const bg = d.done&&!d.isRest ? '#00ff88' : d.isRest ? '#141418' : '#1e1e28';
+          const bdr = d.done&&!d.isRest ? '#00ff88' : d.isRest ? '#28282e' : '#36363f';
+          const glow = d.done&&!d.isRest ? '0 0 14px rgba(0,255,136,0.55)' : 'none';
+          const top = 74 - sz/2;
+          return `<div style="position:absolute;left:${lp}%;top:${top}px;transform:translateX(-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:${bg};border:2px solid ${bdr};box-shadow:${glow};cursor:${d.isRest?'default':'pointer'};display:flex;align-items:center;justify-content:center;transition:box-shadow .2s,background .2s;z-index:2" id="track-node-${d.key}" onclick="${d.isRest?'':(`openDayLog('${d.day}',${wk})`)}">
+            ${d.isRest
+              ? `<svg width="6" height="10" viewBox="0 0 6 10" fill="none"><rect x="0" y="0" width="2" height="8" rx="1" fill="#36363f"/><rect x="4" y="0" width="2" height="8" rx="1" fill="#36363f"/></svg>`
+              : d.done
+                ? `<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#06120c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+                : ''}
           </div>`;
         }).join('')}
 
-        <!-- Finish flag -->
-        ${!weekComplete ? `<div style="position:absolute;right:-16px;top:42px;font-size:20px;line-height:1">🏁</div>` : ''}
-      </div>
+        <!-- Finish flag SVG (right of last node) -->
+        <div style="position:absolute;right:-22px;top:56px;pointer-events:none">
+          <svg width="18" height="26" viewBox="0 0 18 26" fill="none" shape-rendering="crispEdges">
+            <rect x="0" y="0" width="2" height="26" fill="#36363f"/>
+            <rect x="2" y="0" width="4" height="4" fill="#f4f4f5"/><rect x="6" y="0" width="4" height="4" fill="#2a2a30"/><rect x="10" y="0" width="4" height="4" fill="#f4f4f5"/>
+            <rect x="2" y="4" width="4" height="4" fill="#2a2a30"/><rect x="6" y="4" width="4" height="4" fill="#f4f4f5"/><rect x="10" y="4" width="4" height="4" fill="#2a2a30"/>
+            <rect x="2" y="8" width="4" height="4" fill="#f4f4f5"/><rect x="6" y="8" width="4" height="4" fill="#2a2a30"/><rect x="10" y="8" width="4" height="4" fill="#f4f4f5"/>
+          </svg>
+        </div>
 
-      <!-- Day labels -->
-      <div style="display:flex;justify-content:space-between;margin:8px 8px 0;padding:0 2px">
+        <!-- Day labels -->
         ${MARATHON_DAY_LABELS.map((label, i) => {
           const d = days[i];
-          return `<div style="text-align:center;width:28px">
-            <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:${d.done&&!d.isRest?'#00ff88':d.isRest?'#3a3a40':'#6c6c72'};text-transform:uppercase">${label}</div>
-          </div>`;
+          const col = d.done&&!d.isRest ? '#00ff88' : d.isRest ? '#28282e' : '#4a4a54';
+          return `<div style="position:absolute;left:${(i/6)*100}%;top:92px;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.06em;color:${col};text-transform:uppercase;white-space:nowrap">${label}</div>`;
         }).join('')}
+
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div style="display:flex;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:20px">
+      <div style="flex:1;padding:14px 10px;text-align:center;border-right:1px solid var(--border)">
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:${totalDone>0?'#00ff88':'var(--text)'}">${totalDone}<span style="font-size:13px;font-weight:500;color:var(--text-3)">/${totalRun}</span></div>
+        <div style="font-size:10px;color:var(--text-3);margin-top:2px;letter-spacing:.04em;text-transform:uppercase">done</div>
+      </div>
+      <div style="flex:1;padding:14px 10px;text-align:center;border-right:1px solid var(--border)">
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--text)">${w.km}<span style="font-size:12px;font-weight:500;color:var(--text-3)"> km</span></div>
+        <div style="font-size:10px;color:var(--text-3);margin-top:2px;letter-spacing:.04em;text-transform:uppercase">planned</div>
+      </div>
+      <div style="flex:1;padding:14px 10px;text-align:center">
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:700;color:${pct===100?'#00ff88':'var(--text)'}">${pct}<span style="font-size:13px;font-weight:500;color:var(--text-3)">%</span></div>
+        <div style="font-size:10px;color:var(--text-3);margin-top:2px;letter-spacing:.04em;text-transform:uppercase">complete</div>
       </div>
     </div>
 
@@ -606,6 +594,22 @@ function _renderStreakWeek(el, curWk) {
       ${days.map(d => _streakDayCard(d, wk)).join('')}
     </div>
   `;
+
+  // Smooth slide: snap to previous position, then transition to current
+  const runner = document.getElementById('habbo-runner');
+  if (runner) {
+    const prev = window._runnerLeft ?? runnerLeftPct;
+    runner.style.left = prev + '%';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        runner.style.transition = 'left 0.9s cubic-bezier(0.23,1,0.32,1)';
+        runner.style.left = runnerLeftPct + '%';
+        window._runnerLeft = runnerLeftPct;
+      });
+    });
+  } else {
+    window._runnerLeft = runnerLeftPct;
+  }
 }
 
 function _streakDayCard(d, wk) {
