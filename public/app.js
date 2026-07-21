@@ -686,29 +686,39 @@ function _streakDayCard(d, wk) {
           <span style="font-size:11px;color:#5a5a61">${MARATHON_DAY_LABELS[MARATHON_DAYS.indexOf(d.day)]}</span>
           ${hasActual ? `<span style="font-size:10px;color:#00ff88;background:#00ff8814;padding:2px 6px;border-radius:999px">logged</span>` : ''}
         </div>
-        <div style="font-size:13px;color:${d.isRest?'#4a4a52':d.done?'#6c6c72':'#c0c0c8'};line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.desc)}</div>
-        ${hasActual ? `<div style="display:flex;gap:10px;margin-top:4px">${actual.km?`<span style="font-size:11px;color:#9a9aa0">📍 ${actual.km} km</span>`:''}${actual.pace?`<span style="font-size:11px;color:#9a9aa0">⚡ ${actual.pace}/km</span>`:''}${(actual.hrs||actual.mins)?`<span style="font-size:11px;color:#9a9aa0">⏱ ${actual.hrs||0}h ${actual.mins||0}m</span>`:''}</div>` : ''}
+        <div style="font-size:13px;color:${d.isRest?'var(--text-4)':d.done?'var(--text-3)':'var(--text)'};line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escHtml(d.desc)}</div>
+        ${hasActual ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px">
+          ${actual.km?`<span style="font-size:11px;font-weight:600;color:var(--text-2)">${actual.km} km</span>`:''}
+          ${actual.pace?`<span style="font-size:11px;color:var(--text-3)">${actual.pace}/km</span>`:''}
+          ${(actual.hrs||actual.mins)?`<span style="font-size:11px;color:var(--text-3)">${actual.hrs||0}h ${actual.mins||0}m</span>`:''}
+          ${actual.notes?`<span style="font-size:11px;color:var(--text-3);font-style:italic;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;max-width:180px">"${actual.notes}"</span>`:''}
+        </div>` : ''}
       </div>
       <button onclick="event.stopPropagation();editStreakDay('${d.day}',${wk})" style="flex-shrink:0;padding:5px 10px;background:transparent;border:1px solid var(--border-mid);border-radius:8px;font-size:11px;font-weight:600;color:var(--text-3);cursor:pointer">Edit</button>
     </div>
     <!-- Inline log panel -->
     <div id="slog-${d.key}" style="display:none;padding:0 16px 16px">
-      <div style="height:1px;background:#ffffff08;margin-bottom:14px"></div>
+      <div style="height:1px;background:var(--border);margin-bottom:14px"></div>
+      ${!d.isRest ? `<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text-2);line-height:1.55">${escHtml(d.desc)}</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Distance (km)</label>
-          <input id="slog-km-${d.key}" value="${actual?.km||''}" placeholder="e.g. 8.5" type="number" step="0.1" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
-        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Pace (/km)</label>
-          <input id="slog-pace-${d.key}" value="${actual?.pace||''}" placeholder="5:45" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+        <div><label style="font-size:10px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Distance (km)</label>
+          <input id="slog-km-${d.key}" value="${actual?.km||''}" placeholder="e.g. 8.5" type="number" step="0.1" style="width:100%;background:var(--bg);border:1px solid var(--border-input);border-radius:8px;padding:9px 11px;font-size:14px;color:var(--text);box-sizing:border-box" /></div>
+        <div><label style="font-size:10px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Pace (/km)</label>
+          <input id="slog-pace-${d.key}" value="${actual?.pace||''}" placeholder="5:45" style="width:100%;background:var(--bg);border:1px solid var(--border-input);border-radius:8px;padding:9px 11px;font-size:14px;color:var(--text);box-sizing:border-box" /></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Hours</label>
-          <input id="slog-hrs-${d.key}" value="${actual?.hrs??''}" placeholder="0" type="number" min="0" max="9" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
-        <div><label style="font-size:10px;color:#6c6c72;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Minutes</label>
-          <input id="slog-mins-${d.key}" value="${actual?.mins??''}" placeholder="45" type="number" min="0" max="59" style="width:100%;background:#0b0b0d;border:1px solid #ffffff1f;border-radius:8px;padding:9px 11px;font-size:14px;color:#dcdce0;box-sizing:border-box" /></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label style="font-size:10px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Hours</label>
+          <input id="slog-hrs-${d.key}" value="${actual?.hrs??''}" placeholder="0" type="number" min="0" max="9" style="width:100%;background:var(--bg);border:1px solid var(--border-input);border-radius:8px;padding:9px 11px;font-size:14px;color:var(--text);box-sizing:border-box" /></div>
+        <div><label style="font-size:10px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">Minutes</label>
+          <input id="slog-mins-${d.key}" value="${actual?.mins??''}" placeholder="45" type="number" min="0" max="59" style="width:100%;background:var(--bg);border:1px solid var(--border-input);border-radius:8px;padding:9px 11px;font-size:14px;color:var(--text);box-sizing:border-box" /></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:10px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:4px">What I did</label>
+        <textarea id="slog-notes-${d.key}" placeholder="How it went, how you felt, any changes…" style="width:100%;background:var(--bg);border:1px solid var(--border-input);border-radius:8px;padding:9px 11px;font-size:13px;color:var(--text);resize:none;min-height:60px;box-sizing:border-box;font-family:Manrope,sans-serif;line-height:1.5">${escHtml(actual?.notes||'')}</textarea>
       </div>
       <div style="display:flex;gap:8px">
-        <button onclick="saveStreakLog('${d.day}',${wk})" style="flex:1;padding:10px;background:#00ff88;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
-        ${hasActual?`<button onclick="clearStreakLog('${d.day}',${wk})" style="padding:10px 14px;background:transparent;border:1px solid #ffffff1f;border-radius:10px;font-size:12px;color:#6c6c72;cursor:pointer">Clear</button>`:''}
+        <button onclick="saveStreakLog('${d.day}',${wk})" style="flex:1;padding:10px;background:var(--mint);border:none;border-radius:10px;font-size:13px;font-weight:700;color:#06120c;cursor:pointer">Save</button>
+        ${hasActual?`<button onclick="clearStreakLog('${d.day}',${wk})" style="padding:10px 14px;background:transparent;border:1px solid var(--border-mid);border-radius:10px;font-size:12px;color:var(--text-3);cursor:pointer">Clear</button>`:''}
       </div>
     </div>
     <!-- Inline edit panel -->
@@ -777,13 +787,14 @@ async function toggleStreakDay(day, wk) {
 
 async function saveStreakLog(day, wk) {
   const key = `${wk}-${day}`;
-  const km = document.getElementById(`slog-km-${key}`)?.value?.trim() || '';
-  const pace = document.getElementById(`slog-pace-${key}`)?.value?.trim() || '';
-  const hrs = document.getElementById(`slog-hrs-${key}`)?.value?.trim() || '';
-  const mins = document.getElementById(`slog-mins-${key}`)?.value?.trim() || '';
-  _marathonActuals[key] = { km, pace, hrs, mins, savedAt: new Date().toISOString() };
+  const km    = document.getElementById(`slog-km-${key}`)?.value?.trim() || '';
+  const pace  = document.getElementById(`slog-pace-${key}`)?.value?.trim() || '';
+  const hrs   = document.getElementById(`slog-hrs-${key}`)?.value?.trim() || '';
+  const mins  = document.getElementById(`slog-mins-${key}`)?.value?.trim() || '';
+  const notes = document.getElementById(`slog-notes-${key}`)?.value?.trim() || '';
+  _marathonActuals[key] = { km, pace, hrs, mins, notes, savedAt: new Date().toISOString() };
   const duration = (hrs||mins) ? `${hrs||0}h ${mins||0}m` : '';
-  await api.post('/api/marathon-actuals', { key, km, pace, duration, hrs, mins, notes: '' });
+  await api.post('/api/marathon-actuals', { key, km, pace, duration, hrs, mins, notes });
   if (!_marathonCompletions[key]) {
     _marathonCompletions[key] = true;
     await Promise.all([
