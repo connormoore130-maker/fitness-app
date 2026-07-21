@@ -428,7 +428,7 @@ function _characterSVG(animating) {
     ? `${fwd} .36s steps(2,jump-none) infinite`
     : `${bwd} 2.4s ease-in-out infinite`;
   const body = animating ? 'runBob .36s steps(2,jump-none) infinite' : 'idleBob 2.6s ease-in-out infinite';
-  return `<svg viewBox="0 0 100 152" width="44" height="64" shape-rendering="crispEdges" style="overflow:visible;image-rendering:pixelated;display:block">
+  return `<svg viewBox="0 0 100 152" width="30" height="44" shape-rendering="crispEdges" style="overflow:visible;image-rendering:pixelated;display:block">
     <g style="transform-origin:50px 100px;animation:${body}">
       <ellipse cx="50" cy="150" rx="22" ry="5" fill="rgba(0,0,0,0.25)"/>
       <g style="transform-origin:58px 106px;animation:${anim('runLegBack','idleSwayB')}">
@@ -798,26 +798,41 @@ async function toggleStreakDay(day, wk) {
   const key = `${wk}-${day}`;
   const done = !_marathonCompletions[key];
   if (done) {
-    // Animate: optimistically mark done, trigger running animation
     _marathonCompletions[key] = true;
     const dayIdx = MARATHON_DAYS.indexOf(day);
-    _runnerAnimating = true;
-    _runnerAnimatingTo = dayIdx;
-    const el = document.getElementById('view-streak');
-    if (el) _renderStreakWeek(el, currentMarathonWeek());
+    const targetPct = TRACK_POSITIONS[dayIdx];
+
+    // Animate runner in-place — no full re-render, no blank flash
+    const runner = document.getElementById('habbo-runner');
+    if (runner) {
+      runner.innerHTML = _characterSVG(true);
+      const prevPct = window._runnerLeft ?? targetPct;
+      runner.style.transition = 'none';
+      runner.style.left = prevPct + '%';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          runner.style.transition = 'left .9s cubic-bezier(.4,0,.2,1)';
+          runner.style.left = targetPct + '%';
+          window._runnerLeft = targetPct;
+        });
+      });
+    }
+
+    // Also widen the track fill smoothly
+    const fill = document.getElementById('track-fill');
+    if (fill) fill.style.width = Math.max(0, targetPct - 6) + '%';
+
     // Save to server
     Promise.all([
       api.post('/api/marathon-completions', { key, done: true }),
       syncMarathonToStreak(wk, day, true),
     ]).catch(() => {});
-    // After animation, stop running
+
+    // After animation completes, full re-render with idle runner + flags
     setTimeout(() => {
-      _runnerAnimating = false;
-      _runnerAnimatingTo = null;
-      window._runnerLeft = TRACK_POSITIONS[dayIdx];
-      const el2 = document.getElementById('view-streak');
-      if (el2) _renderStreakWeek(el2, currentMarathonWeek());
-    }, 1000);
+      window._runnerLeft = targetPct;
+      renderStreak();
+    }, 1050);
   } else {
     delete _marathonCompletions[key];
     await Promise.all([
