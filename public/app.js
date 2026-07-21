@@ -423,42 +423,94 @@ let _runnerAnimatingTo = null;
 const TRACK_POSITIONS = [8, 22, 36, 50, 64, 78, 92]; // % positions for Mon–Sun
 
 function _characterSVG(animating) {
-  const sk = '#c48c58', hair = '#1c130d', jersey = '#00cc6a', shorts = '#1a2f50';
+  // Colors matching the pixel character: dark hair, warm brown skin, blue JMC jersey, dark pants, white trainers
+  const sk = '#b07248';       // warm medium-brown skin
+  const hair = '#18100a';     // near-black dark hair
+  const jerseyB = '#1e44b8';  // blue jersey base
+  const jerseyS = '#142e88';  // jersey stripe / shadow
+  const jerseyC = '#0e1e60';  // collar dark
+  const pants = '#16161e';    // near-black pants
+  const shoeW = '#c8c4b8';   // white/grey trainer
+  const shoeD = '#282432';   // dark trainer (back foot)
   const anim = (fwd, bwd) => animating
     ? `${fwd} .36s steps(2,jump-none) infinite`
     : `${bwd} 2.4s ease-in-out infinite`;
   const body = animating ? 'runBob .36s steps(2,jump-none) infinite' : 'idleBob 2.6s ease-in-out infinite';
-  return `<svg viewBox="0 0 100 152" width="30" height="44" shape-rendering="crispEdges" style="overflow:visible;image-rendering:pixelated;display:block">
+  return `<svg viewBox="0 0 100 152" width="32" height="46" shape-rendering="crispEdges" style="overflow:visible;image-rendering:pixelated;display:block">
     <g style="transform-origin:50px 100px;animation:${body}">
-      <ellipse cx="50" cy="150" rx="22" ry="5" fill="rgba(0,0,0,0.25)"/>
-      <g style="transform-origin:58px 106px;animation:${anim('runLegBack','idleSwayB')}">
-        <rect x="50" y="106" width="14" height="14" fill="${shorts}" stroke="#0a0a0c" stroke-width="2"/>
-        <rect x="52" y="118" width="10" height="20" fill="${sk}" stroke="#0a0a0c" stroke-width="2"/>
-        <rect x="48" y="138" width="18" height="9" fill="#18181e" stroke="#0a0a0c" stroke-width="2"/>
+      <ellipse cx="50" cy="151" rx="22" ry="5" fill="rgba(0,0,0,0.28)"/>
+
+      <!-- Back leg (dark shoe) -->
+      <g style="transform-origin:60px 108px;animation:${anim('runLegBack','idleSwayB')}">
+        <rect x="52" y="108" width="18" height="32" fill="${pants}"/>
+        <rect x="50" y="138" width="26" height="10" fill="${shoeD}"/>
+        <rect x="70" y="140" width="7" height="6" fill="#3a3448"/>
       </g>
-      <g style="transform-origin:34px 70px;animation:${anim('runArmBack','idleSwayF')}">
-        <rect x="26" y="68" width="12" height="32" fill="${jersey}" stroke="#0a0a0c" stroke-width="2"/>
-        <rect x="26" y="98" width="12" height="12" fill="${sk}" stroke="#0a0a0c" stroke-width="2"/>
+
+      <!-- Back arm -->
+      <g style="transform-origin:26px 72px;animation:${anim('runArmBack','idleSwayF')}">
+        <rect x="16" y="68" width="14" height="20" fill="${jerseyB}"/>
+        <rect x="16" y="86" width="14" height="20" fill="${sk}"/>
+        <rect x="16" y="104" width="14" height="10" fill="${sk}"/>
       </g>
-      <rect x="30" y="62" width="40" height="48" fill="${jersey}" stroke="#0a0a0c" stroke-width="2.5"/>
-      <rect x="26" y="24" width="48" height="40" fill="${sk}" stroke="#0a0a0c" stroke-width="2.5"/>
-      <rect x="22" y="10" width="56" height="18" fill="${hair}" stroke="#0a0a0c" stroke-width="2.5"/>
-      <rect x="14" y="18" width="12" height="14" fill="${hair}" stroke="#0a0a0c" stroke-width="2"/>
-      <rect x="74" y="18" width="12" height="14" fill="${hair}" stroke="#0a0a0c" stroke-width="2"/>
-      <rect x="34" y="36" width="10" height="10" fill="#fff" stroke="#0a0a0c" stroke-width="1.5"/>
-      <rect x="56" y="36" width="10" height="10" fill="#fff" stroke="#0a0a0c" stroke-width="1.5"/>
-      <rect x="37" y="39" width="4" height="4" fill="#1c130d"/>
-      <rect x="59" y="39" width="4" height="4" fill="#1c130d"/>
-      <rect x="42" y="52" width="16" height="4" fill="#1c130d"/>
-      <rect x="43" y="60" width="14" height="6" fill="${sk}" stroke="#0a0a0c" stroke-width="1.5"/>
-      <g style="transform-origin:66px 70px;animation:${anim('runArmFront','idleSwayB')}">
-        <rect x="62" y="68" width="12" height="32" fill="${jersey}" stroke="#0a0a0c" stroke-width="2"/>
-        <rect x="62" y="98" width="12" height="12" fill="${sk}" stroke="#0a0a0c" stroke-width="2"/>
+
+      <!-- Torso: blue jersey with vertical stripes -->
+      <rect x="28" y="62" width="44" height="48" fill="${jerseyB}"/>
+      <rect x="30" y="62" width="7"  height="48" fill="${jerseyS}" opacity=".55"/>
+      <rect x="45" y="62" width="7"  height="48" fill="${jerseyS}" opacity=".55"/>
+      <rect x="60" y="62" width="7"  height="48" fill="${jerseyS}" opacity=".55"/>
+      <!-- V-collar -->
+      <rect x="37" y="62" width="26" height="10" fill="${jerseyC}"/>
+      <rect x="44" y="62" width="12" height="18" fill="${jerseyC}"/>
+      <!-- Crest badge (left chest) -->
+      <rect x="32" y="74" width="10" height="12" fill="#c41e3a"/>
+      <rect x="33" y="75" width="8"  height="10" fill="#8b0000"/>
+      <rect x="35" y="77" width="4"  height="3"  fill="#ffd700"/>
+
+      <!-- Head -->
+      <rect x="24" y="20" width="52" height="44" fill="${sk}"/>
+      <!-- Hair top -->
+      <rect x="20" y="8"  width="60" height="20" fill="${hair}"/>
+      <!-- Hair sides (ears covered) -->
+      <rect x="14" y="16" width="14" height="18" fill="${hair}"/>
+      <rect x="72" y="16" width="14" height="18" fill="${hair}"/>
+      <!-- Fade/texture at hairline -->
+      <rect x="24" y="26" width="10" height="4" fill="${hair}" opacity=".5"/>
+      <rect x="66" y="26" width="10" height="4" fill="${hair}" opacity=".5"/>
+      <!-- Eyebrows -->
+      <rect x="30" y="30" width="14" height="4" fill="${hair}"/>
+      <rect x="56" y="30" width="14" height="4" fill="${hair}"/>
+      <!-- Eyes (whites + dark pupils + highlight) -->
+      <rect x="30" y="34" width="12" height="10" fill="#fff"/>
+      <rect x="56" y="34" width="12" height="10" fill="#fff"/>
+      <rect x="33" y="36" width="6"  height="6"  fill="${hair}"/>
+      <rect x="59" y="36" width="6"  height="6"  fill="${hair}"/>
+      <rect x="34" y="37" width="2"  height="2"  fill="#fff" opacity=".9"/>
+      <rect x="60" y="37" width="2"  height="2"  fill="#fff" opacity=".9"/>
+      <!-- Nose -->
+      <rect x="46" y="44" width="8" height="6" fill="#8a5038"/>
+      <!-- Smile: dark outline + white teeth -->
+      <rect x="34" y="52" width="32" height="9" fill="#1a0808"/>
+      <rect x="36" y="53" width="28" height="6" fill="#fff"/>
+      <rect x="36" y="53" width="14" height="2" fill="#e8e0d8" opacity=".4"/>
+
+      <!-- Neck -->
+      <rect x="42" y="62" width="16" height="6" fill="${sk}"/>
+
+      <!-- Front arm -->
+      <g style="transform-origin:74px 72px;animation:${anim('runArmFront','idleSwayB')}">
+        <rect x="70" y="68" width="14" height="20" fill="${jerseyB}"/>
+        <rect x="70" y="86" width="14" height="20" fill="${sk}"/>
+        <rect x="70" y="104" width="14" height="10" fill="${sk}"/>
       </g>
-      <g style="transform-origin:42px 106px;animation:${anim('runLegFront','idleSwayF')}">
-        <rect x="36" y="106" width="14" height="14" fill="${shorts}" stroke="#0a0a0c" stroke-width="2"/>
-        <rect x="38" y="118" width="10" height="20" fill="${sk}" stroke="#0a0a0c" stroke-width="2"/>
-        <rect x="34" y="138" width="18" height="9" fill="#e8e4d8" stroke="#0a0a0c" stroke-width="2"/>
+
+      <!-- Front leg (white trainer) -->
+      <g style="transform-origin:40px 108px;animation:${anim('runLegFront','idleSwayF')}">
+        <rect x="30" y="108" width="18" height="32" fill="${pants}"/>
+        <rect x="26" y="138" width="26" height="10" fill="${shoeW}"/>
+        <rect x="26" y="140" width="4"  height="6"  fill="#6e6a72"/>
+        <rect x="44" y="140" width="4"  height="6"  fill="#6e6a72"/>
+        <rect x="50" y="140" width="2"  height="6"  fill="#6e6a72"/>
       </g>
     </g>
   </svg>`;
