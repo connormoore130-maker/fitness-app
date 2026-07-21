@@ -1,4 +1,4 @@
-const CACHE = 'connor-v11';
+const CACHE = 'connor-v12';
 
 self.addEventListener('install', e => { self.skipWaiting(); });
 

@@ -417,29 +417,51 @@ let _autoOpenPicker = false;
 let _streakCache = null;
 let _streakDisplayWk = null;
 let _streakTab = 'week'; // 'week' | 'plan'
+let _runnerAnimating = false;
+let _runnerAnimatingTo = null;
 
-function habboFigureSVG(leftPct) {
-  return `<div id="habbo-runner" style="position:absolute;left:${leftPct}%;top:10px;transform:translateX(-50%);z-index:5;pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,255,136,0.18))">
-    <svg width="34" height="46" viewBox="0 0 34 46" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-      <ellipse cx="17" cy="44" rx="11" ry="3" fill="rgba(0,0,0,0.35)"/>
-      <rect x="11" y="0" width="12" height="4" fill="#1a0d07"/>
-      <rect x="11" y="3" width="12" height="12" fill="#f5c070"/>
-      <rect x="13" y="6" width="3" height="3" fill="#2c1405"/>
-      <rect x="20" y="6" width="3" height="3" fill="#2c1405"/>
-      <rect x="14" y="12" width="6" height="2" fill="#c8784a"/>
-      <rect x="14" y="15" width="6" height="3" fill="#f5c070"/>
-      <rect x="9" y="18" width="16" height="11" fill="#00e87a"/>
-      <rect x="14" y="18" width="6" height="3" fill="#00cc6a"/>
-      <rect x="4" y="18" width="5" height="9" fill="#00e87a"/>
-      <rect x="25" y="18" width="5" height="9" fill="#00e87a"/>
-      <rect x="4" y="26" width="5" height="4" fill="#f5c070"/>
-      <rect x="25" y="26" width="5" height="4" fill="#f5c070"/>
-      <rect x="9" y="29" width="7" height="10" fill="#1a2f50"/>
-      <rect x="18" y="29" width="7" height="10" fill="#1a2f50"/>
-      <rect x="8" y="38" width="9" height="5" fill="#18181e"/>
-      <rect x="17" y="38" width="9" height="5" fill="#18181e"/>
-    </svg>
-  </div>`;
+const TRACK_POSITIONS = [8, 22, 36, 50, 64, 78, 92]; // % positions for Mon–Sun
+
+function _characterSVG(animating) {
+  const sk = '#c48c58', hair = '#1c130d', jersey = '#00cc6a', shorts = '#1a2f50';
+  const anim = (fwd, bwd) => animating
+    ? `${fwd} .36s steps(2,jump-none) infinite`
+    : `${bwd} 2.4s ease-in-out infinite`;
+  const body = animating ? 'runBob .36s steps(2,jump-none) infinite' : 'idleBob 2.6s ease-in-out infinite';
+  return `<svg viewBox="0 0 100 152" width="44" height="64" shape-rendering="crispEdges" style="overflow:visible;image-rendering:pixelated;display:block">
+    <g style="transform-origin:50px 100px;animation:${body}">
+      <ellipse cx="50" cy="150" rx="22" ry="5" fill="rgba(0,0,0,0.25)"/>
+      <g style="transform-origin:58px 106px;animation:${anim('runLegBack','idleSwayB')}">
+        <rect x="50" y="106" width="14" height="14" fill="${shorts}" stroke="#0a0a0c" stroke-width="2"/>
+        <rect x="52" y="118" width="10" height="20" fill="${sk}" stroke="#0a0a0c" stroke-width="2"/>
+        <rect x="48" y="138" width="18" height="9" fill="#18181e" stroke="#0a0a0c" stroke-width="2"/>
+      </g>
+      <g style="transform-origin:34px 70px;animation:${anim('runArmBack','idleSwayF')}">
+        <rect x="26" y="68" width="12" height="32" fill="${jersey}" stroke="#0a0a0c" stroke-width="2"/>
+        <rect x="26" y="98" width="12" height="12" fill="${sk}" stroke="#0a0a0c" stroke-width="2"/>
+      </g>
+      <rect x="30" y="62" width="40" height="48" fill="${jersey}" stroke="#0a0a0c" stroke-width="2.5"/>
+      <rect x="26" y="24" width="48" height="40" fill="${sk}" stroke="#0a0a0c" stroke-width="2.5"/>
+      <rect x="22" y="10" width="56" height="18" fill="${hair}" stroke="#0a0a0c" stroke-width="2.5"/>
+      <rect x="14" y="18" width="12" height="14" fill="${hair}" stroke="#0a0a0c" stroke-width="2"/>
+      <rect x="74" y="18" width="12" height="14" fill="${hair}" stroke="#0a0a0c" stroke-width="2"/>
+      <rect x="34" y="36" width="10" height="10" fill="#fff" stroke="#0a0a0c" stroke-width="1.5"/>
+      <rect x="56" y="36" width="10" height="10" fill="#fff" stroke="#0a0a0c" stroke-width="1.5"/>
+      <rect x="37" y="39" width="4" height="4" fill="#1c130d"/>
+      <rect x="59" y="39" width="4" height="4" fill="#1c130d"/>
+      <rect x="42" y="52" width="16" height="4" fill="#1c130d"/>
+      <rect x="43" y="60" width="14" height="6" fill="${sk}" stroke="#0a0a0c" stroke-width="1.5"/>
+      <g style="transform-origin:66px 70px;animation:${anim('runArmFront','idleSwayB')}">
+        <rect x="62" y="68" width="12" height="32" fill="${jersey}" stroke="#0a0a0c" stroke-width="2"/>
+        <rect x="62" y="98" width="12" height="12" fill="${sk}" stroke="#0a0a0c" stroke-width="2"/>
+      </g>
+      <g style="transform-origin:42px 106px;animation:${anim('runLegFront','idleSwayF')}">
+        <rect x="36" y="106" width="14" height="14" fill="${shorts}" stroke="#0a0a0c" stroke-width="2"/>
+        <rect x="38" y="118" width="10" height="20" fill="${sk}" stroke="#0a0a0c" stroke-width="2"/>
+        <rect x="34" y="138" width="18" height="9" fill="#e8e4d8" stroke="#0a0a0c" stroke-width="2"/>
+      </g>
+    </g>
+  </svg>`;
 }
 
 async function renderStreak() {
@@ -531,18 +553,24 @@ function _renderStreakWeek(el, curWk) {
   const totalDone = doneDays.length;
   const pct = totalRun ? Math.round(totalDone / totalRun * 100) : 0;
 
-  // Runner position: index of last completed non-rest day (or -1 if none)
-  let runnerPos = -1;
-  days.forEach((d, i) => { if (d.done && !d.isRest) runnerPos = i; });
-  // If none done, runner waits at first run day
-  if (runnerPos === -1) runnerPos = days.findIndex(d => !d.isRest);
+  // Runner position: index of last completed non-rest day
+  let lastLoggedIdx = -1;
+  days.forEach((d, i) => { if (d.done && !d.isRest) lastLoggedIdx = i; });
 
   const weekComplete = totalRun > 0 && totalDone === totalRun;
   const isCurrentWk = wk === curWk;
   const weekDate = new Date(w.weekOf + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short' });
 
-  const runnerLeftPct = runnerPos < 0 ? days.findIndex(d=>!d.isRest)/6*100 : (runnerPos/6)*100;
-  const fillPct = weekComplete ? 100 : runnerPos < 0 ? 0 : runnerLeftPct;
+  // Track positions + animation state
+  const animating = !!_runnerAnimating;
+  const todayDayName = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
+  const todayIdx = isCurrentWk ? MARATHON_DAYS.indexOf(todayDayName) : -1;
+  const targetIdx = animating ? (_runnerAnimatingTo ?? lastLoggedIdx) : lastLoggedIdx;
+  const firstRunIdx = days.findIndex(d => !d.isRest);
+  const charPosPct = targetIdx < 0
+    ? TRACK_POSITIONS[Math.max(0, firstRunIdx)]
+    : TRACK_POSITIONS[targetIdx];
+  const fillWidth = targetIdx < 0 ? 0 : Math.max(0, TRACK_POSITIONS[targetIdx] - 6);
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
@@ -564,65 +592,59 @@ function _renderStreakWeek(el, curWk) {
     </div>
 
     <!-- Track card -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:20px 20px 16px;margin-bottom:14px;overflow:visible;position:relative">
-      ${weekComplete ? `
-        <div style="text-align:center;margin-bottom:16px;padding:10px;background:#00ff8810;border:1px solid #00ff8830;border-radius:12px">
-          <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:#00ff88;letter-spacing:.04em">WEEK COMPLETE</div>
-        </div>` : ''}
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:20px 16px 20px;margin-bottom:14px;overflow:visible;position:relative">
 
-      <!-- Stage: character + track + nodes all in one coordinate space -->
-      <div style="position:relative;height:108px;overflow:visible;margin:0 16px">
+      <!-- Stage: 200px tall, track line at bottom:52px -->
+      <div style="position:relative;height:200px">
 
-        <!-- Habbo figure (static, transitions via JS) -->
-        ${habboFigureSVG(runnerLeftPct)}
+        <!-- Track groove -->
+        <div style="position:absolute;left:6%;right:6%;bottom:52px;height:5px;background:#1a1a22;border-radius:3px;transform:translateY(50%)"></div>
+        <!-- Track fill -->
+        <div id="track-fill" style="position:absolute;left:6%;bottom:52px;height:5px;border-radius:3px;background:linear-gradient(90deg,#00ff88,#00d474);transform:translateY(50%);width:${fillWidth}%;transition:width .9s cubic-bezier(.4,0,.2,1)"></div>
 
-        <!-- Track surface band -->
-        <div style="position:absolute;left:0;right:0;top:60px;height:28px;background:#0f0f12;border-radius:6px;overflow:hidden">
-          <!-- Lane stripes -->
-          <div style="position:absolute;top:8px;left:0;right:0;height:1px;background:rgba(255,255,255,0.04)"></div>
-          <div style="position:absolute;top:18px;left:0;right:0;height:1px;background:rgba(255,255,255,0.04)"></div>
-          <!-- Progress fill on surface -->
-          <div style="position:absolute;top:0;bottom:0;left:0;width:${fillPct}%;background:linear-gradient(90deg,rgba(0,255,136,0.18),rgba(0,255,136,0.1));transition:width 0.8s var(--ease)"></div>
-        </div>
-
-        <!-- Track centre line (overlaid on surface) -->
-        <div style="position:absolute;left:0;right:0;top:73px;height:2px;background:#1e1e28;border-radius:1px"></div>
-        <!-- Centre line fill -->
-        <div style="position:absolute;left:0;top:73px;height:2px;width:${fillPct}%;background:linear-gradient(90deg,#00ff88,#00e07a);border-radius:1px;transition:width 0.8s var(--ease)"></div>
-
-        <!-- Day nodes (sit on the centre line) -->
+        <!-- Day checkpoints -->
         ${days.map((d, i) => {
-          const lp = (i/6)*100;
-          const sz = d.isRest ? 16 : 22;
-          const bg = d.done&&!d.isRest ? '#00ff88' : d.isRest ? '#141418' : '#1e1e28';
-          const bdr = d.done&&!d.isRest ? '#00ff88' : d.isRest ? '#28282e' : '#36363f';
-          const glow = d.done&&!d.isRest ? '0 0 14px rgba(0,255,136,0.55)' : 'none';
-          const top = 74 - sz/2;
-          return `<div style="position:absolute;left:${lp}%;top:${top}px;transform:translateX(-50%);width:${sz}px;height:${sz}px;border-radius:50%;background:${bg};border:2px solid ${bdr};box-shadow:${glow};cursor:${d.isRest?'default':'pointer'};display:flex;align-items:center;justify-content:center;transition:box-shadow .2s,background .2s;z-index:2" id="track-node-${d.key}" onclick="${d.isRest?'':(`openDayLog('${d.day}',${wk})`)}">
-            ${d.isRest
-              ? `<svg width="6" height="10" viewBox="0 0 6 10" fill="none"><rect x="0" y="0" width="2" height="8" rx="1" fill="#36363f"/><rect x="4" y="0" width="2" height="8" rx="1" fill="#36363f"/></svg>`
-              : d.done
-                ? `<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#06120c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-                : ''}
-          </div>`;
+          const xp = TRACK_POSITIONS[i];
+          const isToday = i === todayIdx;
+          const dotColor = (d.done && !d.isRest) || (isToday && !d.isRest)
+            ? '#00ff88' : d.isRest ? '#252530' : '#2a2a38';
+          const dotBorder = (d.done && !d.isRest) ? '#00ff88'
+            : isToday && !d.isRest ? '#00ff8880' : d.isRest ? '#30303c' : '#363645';
+          const dotGlow = (d.done && !d.isRest) ? '0 0 10px rgba(0,255,136,0.5)' : 'none';
+          return `
+            ${!d.isRest && isToday && !d.done && !animating ? `
+              <div style="position:absolute;bottom:52px;left:${xp}%;width:14px;height:14px;border-radius:50%;background:#00ff88;transform:translate(-50%,-50%);animation:pulseRing 1.6s ease-out infinite;pointer-events:none;z-index:1"></div>` : ''}
+            <div onclick="${d.isRest?'':(`openDayLog('${d.day}',${wk})`)}" style="position:absolute;bottom:52px;left:${xp}%;width:14px;height:14px;border-radius:50%;background:${dotColor};border:2px solid ${dotBorder};box-shadow:${dotGlow};transform:translate(-50%,-50%);cursor:${d.isRest?'default':'pointer'};z-index:3;transition:background .2s,box-shadow .2s"></div>
+            ${d.done && !d.isRest ? `
+              <div style="position:absolute;bottom:68px;left:${xp}%;transform:translateX(-50%);pointer-events:none;z-index:4;animation:flagPop .35s cubic-bezier(0.23,1,0.32,1) both">
+                <svg width="16" height="20" viewBox="0 0 16 20" shape-rendering="crispEdges">
+                  <line x1="2" y1="19" x2="2" y2="1" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+                  <path d="M2 2 L14 6 L2 11 Z" fill="${i===6?'#ffb35c':'#00ff88'}"/>
+                </svg>
+              </div>` : ''}
+            <div style="position:absolute;bottom:24px;left:${xp}%;transform:translateX(-50%);font-size:10px;font-weight:700;letter-spacing:.05em;color:${d.done&&!d.isRest?'#00ff88':isToday&&!d.isRest?'#00ff8888':d.isRest?'#2e2e3c':'#3e3e50'};white-space:nowrap">${MARATHON_DAY_LABELS[i]}</div>
+          `;
         }).join('')}
 
-        <!-- Finish flag SVG (right of last node) -->
-        <div style="position:absolute;right:-22px;top:56px;pointer-events:none">
-          <svg width="18" height="26" viewBox="0 0 18 26" fill="none" shape-rendering="crispEdges">
-            <rect x="0" y="0" width="2" height="26" fill="#36363f"/>
-            <rect x="2" y="0" width="4" height="4" fill="#f4f4f5"/><rect x="6" y="0" width="4" height="4" fill="#2a2a30"/><rect x="10" y="0" width="4" height="4" fill="#f4f4f5"/>
-            <rect x="2" y="4" width="4" height="4" fill="#2a2a30"/><rect x="6" y="4" width="4" height="4" fill="#f4f4f5"/><rect x="10" y="4" width="4" height="4" fill="#2a2a30"/>
-            <rect x="2" y="8" width="4" height="4" fill="#f4f4f5"/><rect x="6" y="8" width="4" height="4" fill="#2a2a30"/><rect x="10" y="8" width="4" height="4" fill="#f4f4f5"/>
+        <!-- Finish flag at Sun position -->
+        <div style="position:absolute;bottom:52px;left:95%;transform:translate(-50%,-50%);pointer-events:none;z-index:2">
+          <svg width="18" height="28" viewBox="0 0 18 28" shape-rendering="crispEdges">
+            <rect x="0" y="0" width="2" height="28" fill="#2a2a38"/>
+            <rect x="2" y="0" width="4" height="4" fill="#e8e8f0"/><rect x="6" y="0" width="4" height="4" fill="#1e1e2a"/><rect x="10" y="0" width="4" height="4" fill="#e8e8f0"/>
+            <rect x="2" y="4" width="4" height="4" fill="#1e1e2a"/><rect x="6" y="4" width="4" height="4" fill="#e8e8f0"/><rect x="10" y="4" width="4" height="4" fill="#1e1e2a"/>
+            <rect x="2" y="8" width="4" height="4" fill="#e8e8f0"/><rect x="6" y="8" width="4" height="4" fill="#1e1e2a"/><rect x="10" y="8" width="4" height="4" fill="#e8e8f0"/>
           </svg>
         </div>
 
-        <!-- Day labels -->
-        ${MARATHON_DAY_LABELS.map((label, i) => {
-          const d = days[i];
-          const col = d.done&&!d.isRest ? '#00ff88' : d.isRest ? '#28282e' : '#4a4a54';
-          return `<div style="position:absolute;left:${(i/6)*100}%;top:92px;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.06em;color:${col};text-transform:uppercase;white-space:nowrap">${label}</div>`;
-        }).join('')}
+        <!-- Character -->
+        <div id="habbo-runner" style="position:absolute;bottom:52px;left:${charPosPct}%;transform:translateX(-50%);transition:left .9s cubic-bezier(.4,0,.2,1);z-index:5;pointer-events:none">
+          ${_characterSVG(animating)}
+        </div>
+
+        ${weekComplete ? `
+          <div style="position:absolute;top:8px;left:0;right:0;text-align:center;animation:bannerIn .4s cubic-bezier(0.23,1,0.32,1) both">
+            <span style="display:inline-block;padding:6px 16px;background:#00ff8818;border:1px solid #00ff8840;border-radius:999px;font-size:12px;font-weight:700;color:#00ff88;letter-spacing:.06em">WEEK COMPLETE</span>
+          </div>` : ''}
 
       </div>
     </div>
@@ -649,20 +671,21 @@ function _renderStreakWeek(el, curWk) {
     </div>
   `;
 
-  // Smooth slide: snap to previous position, then transition to current
+  // Smooth slide: snap runner to previous position, then CSS-transition to new position
   const runner = document.getElementById('habbo-runner');
   if (runner) {
-    const prev = window._runnerLeft ?? runnerLeftPct;
-    runner.style.left = prev + '%';
+    const prevPct = window._runnerLeft ?? charPosPct;
+    runner.style.transition = 'none';
+    runner.style.left = prevPct + '%';
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        runner.style.transition = 'left 0.9s cubic-bezier(0.23,1,0.32,1)';
-        runner.style.left = runnerLeftPct + '%';
-        window._runnerLeft = runnerLeftPct;
+        runner.style.transition = 'left .9s cubic-bezier(.4,0,.2,1)';
+        runner.style.left = charPosPct + '%';
+        window._runnerLeft = charPosPct;
       });
     });
   } else {
-    window._runnerLeft = runnerLeftPct;
+    window._runnerLeft = charPosPct;
   }
 }
 
@@ -774,15 +797,35 @@ async function saveStreakEdit(day, wk) {
 async function toggleStreakDay(day, wk) {
   const key = `${wk}-${day}`;
   const done = !_marathonCompletions[key];
-  _marathonCompletions[key] = done || undefined;
-  if (!done) delete _marathonCompletions[key];
-  const w = MARATHON_PLAN.find(w => w.wk === wk);
-  const desc = _marathonEdits[key] || w?.[day] || '';
-  await Promise.all([
-    api.post('/api/marathon-completions', { key, done }),
-    syncMarathonToStreak(wk, day, done),
-  ]);
-  renderStreak();
+  if (done) {
+    // Animate: optimistically mark done, trigger running animation
+    _marathonCompletions[key] = true;
+    const dayIdx = MARATHON_DAYS.indexOf(day);
+    _runnerAnimating = true;
+    _runnerAnimatingTo = dayIdx;
+    const el = document.getElementById('view-streak');
+    if (el) _renderStreakWeek(el, currentMarathonWeek());
+    // Save to server
+    Promise.all([
+      api.post('/api/marathon-completions', { key, done: true }),
+      syncMarathonToStreak(wk, day, true),
+    ]).catch(() => {});
+    // After animation, stop running
+    setTimeout(() => {
+      _runnerAnimating = false;
+      _runnerAnimatingTo = null;
+      window._runnerLeft = TRACK_POSITIONS[dayIdx];
+      const el2 = document.getElementById('view-streak');
+      if (el2) _renderStreakWeek(el2, currentMarathonWeek());
+    }, 1000);
+  } else {
+    delete _marathonCompletions[key];
+    await Promise.all([
+      api.post('/api/marathon-completions', { key, done: false }),
+      syncMarathonToStreak(wk, day, false),
+    ]);
+    renderStreak();
+  }
 }
 
 async function saveStreakLog(day, wk) {
@@ -818,6 +861,9 @@ function changeStreakWeek(delta) {
   const newWk = (_streakDisplayWk || 1) + delta;
   if (newWk < 1 || newWk > 41) return;
   _streakDisplayWk = newWk;
+  _runnerAnimating = false;
+  _runnerAnimatingTo = null;
+  window._runnerLeft = null;
   const el = document.getElementById('view-streak');
   const curWk = currentMarathonWeek();
   if (el) _renderStreakWeek(el, curWk);
